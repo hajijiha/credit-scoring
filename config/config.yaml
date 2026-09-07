@@ -77,7 +77,7 @@ simulator:
   biased_features:                         # ADR-002: 측정 편향을 주입할 대안 피처
     - telecom_payment_rate
     - utility_payment_rate
-  bias_shift_per_ratio: 0.1                # 하향폭 = bias_ratio * 이 값 (집단별로 가산)
+  bias_shift_per_ratio: 0.3                # 하향폭 = bias_ratio * 이 값 (집단별로 가산). ADR-002 v2
 
 fairness:
   library: fairlearn                       # AIF360 금지 (ADR-004 / Python 3.12 비호환)
@@ -87,9 +87,9 @@ fairness:
   groups:
     gender: [male, female]
     age_group: ["20-34", "35-54", "55+"]
-  disadvantaged_groups:                    # ADR-002 에서 측정 편향을 주입하는 집단
+  disadvantaged_groups:                    # ADR-002 v2 에서 측정 편향을 주입하는 집단
     gender: female
-    age_group: "55+"
+    age_group: "20-34"
   mitigation:
     method: threshold_optimizer            # Fairlearn ThresholdOptimizer (ADR-004)
     constraints: equalized_odds
@@ -98,6 +98,28 @@ cv:
   n_splits: 5                              # RepeatedStratifiedKFold (ADR-005)
   n_repeats: 4                             # 그룹당 관측치 n = 5 x 4 = 20
   random_state: 42
+
+preprocess:
+  # 중앙값 대체 대상. 연체 3컬럼은 여기에 넣지 않는다(아래 사유 참조).
+  median_impute_columns:
+    - MonthlyIncome
+    - NumberOfDependents
+  # 씬파일러의 연체 컬럼 결측은 '정보 없음'이라는 신호 자체다. 중앙값으로 채우면
+  # 씬파일러를 평균적인 우량 고객으로 위장시키게 되므로 센티넬 값 + 결측 플래그로 보존한다.
+  missing_indicator_columns:
+    - NumberOfTime30-59DaysPastDueNotWorse
+    - NumberOfTime60-89DaysPastDueNotWorse
+    - NumberOfTimes90DaysLate
+  missing_sentinel: -1
+  missing_flag_suffix: _is_missing
+  categorical_columns:
+    - gender
+    - age_group
+  passthrough_columns:                     # 스케일링/인코딩 없이 통과시킬 컬럼
+    - is_thin_filer
+  scaler: standard                         # standard | minmax
+  output_dir: data/processed
+  scaler_file: preprocessor.joblib
 
 mlflow:
   tracking_uri: file:./mlruns

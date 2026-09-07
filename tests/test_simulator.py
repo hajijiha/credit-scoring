@@ -60,6 +60,18 @@ def test_alternative_feature_correlations(simulated, config):
         assert corr < 0, f"{feature}: 우량 행동 지표이므로 부도와 음의 상관이어야 한다 (corr={corr:.4f})"
 
 
+@pytest.mark.parametrize("bias_ratio", [0.0, 0.1, 0.5])
+def test_correlations_hold_across_bias_ratio(config, bias_ratio):
+    """편향 주입은 대상 피처의 상관을 낮춘다. bias_ratio 를 올려도 0.3~0.5 를 지켜야 한다."""
+    lo = config["simulator"]["target_correlation"]["min"]
+    hi = config["simulator"]["target_correlation"]["max"]
+    df = sim.simulate(_fake_gmsc(30_000), config, bias_ratio=bias_ratio)
+    target = df[config["data"]["target_column"]]
+    for feature in config["simulator"]["alternative_features"]:
+        corr = abs(float(np.corrcoef(df[feature], target)[0, 1]))
+        assert lo <= corr <= hi, f"bias_ratio={bias_ratio} {feature}: |corr|={corr:.4f}"
+
+
 def test_alternative_features_are_not_target_copies(simulated, config):
     """상관 상한을 넘는 누수성 피처가 없어야 한다."""
     target = simulated[config["data"]["target_column"]]
@@ -126,14 +138,21 @@ def test_bias_direction(config):
             feature: {
                 "female": df.loc[df["gender"] == disadvantaged["gender"], feature].mean(),
                 "male": df.loc[df["gender"] != disadvantaged["gender"], feature].mean(),
-                "old": df.loc[df["age_group"] == disadvantaged["age_group"], feature].mean(),
+                "disadvantaged_age": df.loc[df["age_group"] == disadvantaged["age_group"], feature].mean(),
+                "other_age": df.loc[df["age_group"] != disadvantaged["age_group"], feature].mean(),
             }
             for feature in features
         }
 
     for feature in features:
         assert means[0.5][feature]["female"] < means[0.1][feature]["female"] < means[0.0][feature]["female"]
-        assert means[0.5][feature]["old"] < means[0.1][feature]["old"] < means[0.0][feature]["old"]
+        assert (means[0.5][feature]["disadvantaged_age"]
+                < means[0.1][feature]["disadvantaged_age"]
+                < means[0.0][feature]["disadvantaged_age"])
+        # 불이익 집단과 나머지 연령대의 격차가 bias_ratio 와 함께 벌어져야 한다 (ADR-002 v2).
+        gaps = [means[r][feature]["other_age"] - means[r][feature]["disadvantaged_age"]
+                for r in (0.0, 0.1, 0.5)]
+        assert gaps[0] < gaps[1] < gaps[2], f"{feature}: 연령대 격차가 단조 증가하지 않는다 {gaps}"
         # 편향 없는 상태에서는 성별 격차가 없어야 한다(gender 는 무작위 합성).
         assert abs(means[0.0][feature]["female"] - means[0.0][feature]["male"]) < 0.01
         # 편향 주입 후에는 female 이 male 보다 낮아야 한다.
@@ -148,11 +167,12 @@ def test_bias_shift_magnitude(config):
     clean = sim.simulate(base, config, bias_ratio=0.0)
     biased = sim.simulate(base, config, bias_ratio=ratio)
     feature = config["simulator"]["biased_features"][0]
-    # 남성 & 55+ 아닌 집단은 변화가 없어야 한다.
-    untouched = (clean["gender"] == "male") & (clean["age_group"] != "55+")
+    disadvantaged = config["fairness"]["disadvantaged_groups"]
+    # 비불이익 집단(남성 & 불이익 연령대 아님)은 변화가 없어야 한다.
+    untouched = (clean["gender"] != disadvantaged["gender"]) & (clean["age_group"] != disadvantaged["age_group"])
     assert np.allclose(clean.loc[untouched, feature], biased.loc[untouched, feature])
-    # female & 55+ 아닌 집단은 정확히 shift 만큼 하향.
-    only_female = (clean["gender"] == "female") & (clean["age_group"] != "55+")
+    # 불이익 성별만 해당하는 집단은 정확히 shift 만큼 하향.
+    only_female = (clean["gender"] == disadvantaged["gender"]) & (clean["age_group"] != disadvantaged["age_group"])
     diff = clean.loc[only_female, feature] - biased.loc[only_female, feature]
     assert np.allclose(diff, shift, atol=1e-9)
 

@@ -1,6 +1,7 @@
 # 데이터 (원본은 재현 스크립트로 내려받음)
 data/raw/*
 !data/raw/.gitkeep
+data/processed/
 
 # 학습 산출물
 models/*.pkl

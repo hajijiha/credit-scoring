@@ -25,7 +25,7 @@ credit-scoring/
 ├── data/raw/              # cs-training.csv (GMSC, git 제외)
 ├── src/
 │   ├── config.py          # config.yaml 로딩 · 경로 해석 (설정 접근의 유일한 진입점)
-│   ├── data/              # 로더, 대안 데이터 시뮬레이터, 전처리
+│   ├── data/              # loader.py, simulator.py, preprocessor.py
 │   ├── models/            # 학습 파이프라인
 │   ├── explainer/         # SHAP
 │   ├── fairness/          # Fairlearn 지표 · 완화
@@ -53,7 +53,7 @@ credit-scoring/
 | ADR | 주제 |
 |---|---|
 | [ADR-001](docs/decisions/ADR-001-simulator.md) | 대안 데이터 시뮬레이터 · 씬파일러 정보량 축소 |
-| [ADR-002](docs/decisions/ADR-002-bias-injection.md) | bias_ratio 를 통한 피처 측정 편향 주입 |
+| [ADR-002](docs/decisions/ADR-002-bias-injection.md) | bias_ratio 를 통한 피처 측정 편향 주입 (**v2**: 대상 female / 20-34) |
 | [ADR-003](docs/decisions/ADR-003-score-mapping.md) | 점수 매핑(1000×(1−p)) · 등급 컷 · 승인 임계값 |
 | [ADR-004](docs/decisions/ADR-004-mitigation.md) | Fairlearn ThresholdOptimizer (equalized_odds) |
 | [ADR-005](docs/decisions/ADR-005-anova-unit.md) | ANOVA 관측 단위 = RepeatedStratifiedKFold 5×4 |

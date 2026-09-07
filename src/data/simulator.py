@@ -145,10 +145,16 @@ def add_alternative_features(df: pd.DataFrame, config: dict[str, Any] | None = N
     rng = np.random.default_rng(sim["random_state"])
 
     # 목표 상관은 설정 범위 [min, max] 안에 여유를 두고 균등 배치한다.
+    # 편향 주입 대상 피처(telecom/utility)는 apply_bias 에서 값이 하향되면서 상관이 함께
+    # 떨어지므로, 여유가 큰 상단 목표값을 배정해 bias_ratio 를 올려도 범위를 벗어나지 않게 한다.
     margin = 0.02 * (hi - lo)
-    goals = np.linspace(lo + margin, hi - margin, len(features))
+    ladder = sorted(np.linspace(lo + margin, hi - margin, len(features)), reverse=True)
+    biased = [f for f in features if f in sim["biased_features"]]
+    ordered = biased + [f for f in features if f not in biased]
+    goal_of = dict(zip(ordered, ladder))
 
-    for feature, goal in zip(features, goals):
+    for feature in features:
+        goal = goal_of[feature]
         eps = rng.normal(size=len(df))
         values, achieved = _fit_feature(
             t_z, target, nuisance, eps, _FEATURE_KIND[feature], float(goal)
