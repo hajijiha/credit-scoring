@@ -60,9 +60,14 @@ def test_alternative_feature_correlations(simulated, config):
         assert corr < 0, f"{feature}: 우량 행동 지표이므로 부도와 음의 상관이어야 한다 (corr={corr:.4f})"
 
 
-@pytest.mark.parametrize("bias_ratio", [0.0, 0.1, 0.5])
+@pytest.mark.parametrize("bias_ratio", [0.0, 0.1, 0.2])
 def test_correlations_hold_across_bias_ratio(config, bias_ratio):
-    """편향 주입은 대상 피처의 상관을 낮춘다. bias_ratio 를 올려도 0.3~0.5 를 지켜야 한다."""
+    """편향 주입은 대상 피처의 상관을 낮춘다.
+
+    ADR-001 v2 로 생성 상관이 0.31~0.35 로 낮아졌으므로 여유가 줄었다.
+    GMSC 실데이터 기준 유효 bias_ratio 범위는 0 ~ 0.3 이며 0.4 부터 telecom/utility 가
+    0.30 아래로 내려간다. 이 테스트의 합성 표본은 여유가 더 적어 0.2 까지만 확인한다.
+    """
     lo = config["simulator"]["target_correlation"]["min"]
     hi = config["simulator"]["target_correlation"]["max"]
     df = sim.simulate(_fake_gmsc(30_000), config, bias_ratio=bias_ratio)
@@ -70,6 +75,35 @@ def test_correlations_hold_across_bias_ratio(config, bias_ratio):
     for feature in config["simulator"]["alternative_features"]:
         corr = abs(float(np.corrcoef(df[feature], target)[0, 1]))
         assert lo <= corr <= hi, f"bias_ratio={bias_ratio} {feature}: |corr|={corr:.4f}"
+
+
+def test_shared_latent_factor_creates_within_class_correlation(simulated, config):
+    """ADR-001 v2: 타겟을 조건으로 해도 대안 피처들이 서로 상관을 가져야 한다.
+
+    조건부 독립이면 다섯 변수의 정보가 그대로 합산돼 결합 판별력이 비현실적으로 커진다(v1 문제).
+    """
+    features = config["simulator"]["alternative_features"]
+    target = simulated[config["data"]["target_column"]]
+    means = []
+    for cls in (0, 1):
+        block = simulated.loc[target == cls, features]
+        corr = block.corr().to_numpy()
+        means.append(corr[np.triu_indices(len(features), 1)].mean())
+    for value in means:
+        assert value > 0.4, f"클래스 내부 평균 상관 {value:.3f} — 공유 잠재요인이 약하다"
+
+
+def test_joint_separation_is_bounded(simulated, config):
+    """대안 5변수 결합 판별력이 과도하지 않아야 한다 (ADR-001 v2 누수 회귀 방지)."""
+    features = config["simulator"]["alternative_features"]
+    y = simulated[config["data"]["target_column"]].to_numpy()
+    x = simulated[features].to_numpy()
+    m0, m1 = x[y == 0].mean(0), x[y == 1].mean(0)
+    w = np.linalg.solve(np.cov(x[y == 0].T), m1 - m0)
+    score = x @ w
+    a, b = score[y == 0], score[y == 1]
+    d = abs(b.mean() - a.mean()) / np.sqrt(0.5 * (a.var() + b.var()))
+    assert d < 3.0, f"결합 효과크기 d={d:.2f} — v1 수준(3.96)의 누수가 재발했다"
 
 
 def test_alternative_features_are_not_target_copies(simulated, config):
@@ -92,14 +126,14 @@ def test_thin_filer_ratio(config, ratio):
 
 
 def test_thin_filer_masks_delinquency_columns(simulated, config):
-    """씬파일러는 연체 3컬럼이 전부 결측, 비씬파일러는 결측 없음."""
-    masked = config["simulator"]["thin_filer_masked_columns"]
-    flag = config["simulator"]["thin_filer_flag_column"]
-    thin = simulated[simulated[flag] == 1]
-    non_thin = simulated[simulated[flag] == 0]
+    """ADR-010: 연체 결측은 missing_only / both 유형에만 적용된다."""
+    sim_cfg = config["simulator"]
+    masked = sim_cfg["thin_filer_masked_columns"]
+    type_col = sim_cfg["thin_filer_type_column"]
+    should_be_missing = simulated[type_col].isin(["missing_only", "both"])
     for col in masked:
-        assert thin[col].isna().all()
-        assert not non_thin[col].isna().any()
+        assert simulated.loc[should_be_missing, col].isna().all()
+        assert not simulated.loc[~should_be_missing, col].isna().any()
 
 
 def test_thin_filer_flag_follows_spec_definition(simulated, config):
@@ -115,16 +149,46 @@ def test_thin_filer_flag_follows_spec_definition(simulated, config):
 
 
 def test_credit_history_months_ranges(simulated, config):
-    """ADR-009: 씬파일러 3~11개월, 일반 12~120개월."""
-    hist = config["simulator"]["credit_history"]
+    """ADR-009 / ADR-010: 이력 부족 유형만 3~11개월, 나머지는 12~120개월."""
+    sim_cfg = config["simulator"]
+    hist = sim_cfg["credit_history"]
     col = hist["column"]
-    flag = config["simulator"]["thin_filer_flag_column"]
-    thin = simulated.loc[simulated[flag] == 1, col]
-    normal = simulated.loc[simulated[flag] == 0, col]
-    assert thin.min() >= hist["thin_range"][0] and thin.max() <= hist["thin_range"][1]
-    assert normal.min() >= hist["normal_range"][0] and normal.max() <= hist["normal_range"][1]
-    assert (thin < hist["min_months_for_normal"]).all()
-    assert (normal >= hist["min_months_for_normal"]).all()
+    type_col = sim_cfg["thin_filer_type_column"]
+    short = simulated[type_col].isin(["history_only", "both"])
+    assert simulated.loc[short, col].between(*hist["thin_range"]).all()
+    assert simulated.loc[~short, col].between(*hist["normal_range"]).all()
+    assert (simulated.loc[short, col] < hist["min_months_for_normal"]).all()
+    assert (simulated.loc[~short, col] >= hist["min_months_for_normal"]).all()
+
+
+def test_thin_filer_type_mix(simulated, config):
+    """ADR-010: 씬파일러 내부 유형 비중이 설정과 일치해야 한다."""
+    sim_cfg = config["simulator"]
+    type_col = sim_cfg["thin_filer_type_column"]
+    flag = sim_cfg["thin_filer_flag_column"]
+    mix = sim_cfg["thin_filer_type_mix"]
+
+    thin = simulated[simulated[flag] == 1]
+    assert set(simulated[type_col].unique()) <= {"none", *mix}
+    shares = thin[type_col].value_counts(normalize=True)
+    for kind, expected in mix.items():
+        assert abs(shares[kind] - expected) < 0.02, f"{kind}: {shares[kind]:.3f} vs {expected}"
+    # 비씬파일러는 전부 none
+    assert (simulated.loc[simulated[flag] == 0, type_col] == "none").all()
+
+
+def test_thin_filer_conditions_are_not_identical(simulated, config):
+    """ADR-010: 두 판정 조건이 서로 다른 집합이어야 OR 정의가 의미를 갖는다."""
+    sim_cfg = config["simulator"]
+    masked = sim_cfg["thin_filer_masked_columns"]
+    hist = sim_cfg["credit_history"]
+    by_missing = simulated[masked].isna().sum(axis=1) >= sim_cfg["thin_filer_min_missing"]
+    by_history = simulated[hist["column"]] < hist["min_months_for_normal"]
+    intersection = int((by_missing & by_history).sum())
+    union = int((by_missing | by_history).sum())
+    assert intersection < union, "두 조건이 동일 집합이면 OR 정의가 무의미해진다"
+    assert int(by_missing.sum()) < union
+    assert int(by_history.sum()) < union
 
 
 def test_credit_history_weak_positive_age_correlation(simulated, config):

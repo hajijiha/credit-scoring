@@ -145,15 +145,19 @@ def test_delinquency_uses_sentinel_not_median(raw, config):
         assert col not in fitted.medians
 
 
-def test_flag_matches_thin_filer(prepared, config):
-    """연체 컬럼 결측 플래그는 씬파일러와 일치해야 한다 (ADR-001)."""
+def test_flag_matches_delinquency_thin_filer_types(prepared, config):
+    """ADR-010: 결측 플래그는 연체결측 유형(missing_only/both)과 일치해야 한다.
+
+    씬파일러 전체와 일치하지 않는다. history_only 유형은 연체 컬럼이 관측되기 때문이다.
+    """
     processed, _ = prepared
     suffix = config["preprocess"]["missing_flag_suffix"]
     train_x = processed["train"][0]
     flag = f"{config['preprocess']['missing_indicator_columns'][0]}{suffix}"
-    pd.testing.assert_series_equal(
-        train_x[flag].astype(int), train_x["is_thin_filer"].astype(int), check_names=False
-    )
+    expected = train_x["thin_filer_type"].isin(["missing_only", "both"]).astype(int)
+    pd.testing.assert_series_equal(train_x[flag].astype(int), expected, check_names=False)
+    # 씬파일러 전체보다 적어야 한다(history_only 만큼 차이).
+    assert train_x[flag].sum() < train_x["is_thin_filer"].sum()
 
 
 def test_no_missing_values_after_preprocess(prepared):

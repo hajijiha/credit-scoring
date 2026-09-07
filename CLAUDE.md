@@ -54,7 +54,7 @@ credit-scoring/
 
 | ADR | 주제 |
 |---|---|
-| [ADR-001](docs/decisions/ADR-001-simulator.md) | 대안 데이터 시뮬레이터 · 씬파일러 정보량 축소 |
+| [ADR-001](docs/decisions/ADR-001-simulator.md) | 대안 데이터 시뮬레이터 (**v2**: 공유 잠재요인, 결합 누수 제거) |
 | [ADR-002](docs/decisions/ADR-002-bias-injection.md) | bias_ratio 를 통한 피처 측정 편향 주입 (**v2**: 대상 female / 20-34) |
 | [ADR-003](docs/decisions/ADR-003-score-mapping.md) | 점수 매핑(1000×(1−p)) · 등급 컷 · 승인 임계값 |
 | [ADR-004](docs/decisions/ADR-004-mitigation.md) | Fairlearn ThresholdOptimizer (equalized_odds) |
@@ -63,6 +63,7 @@ credit-scoring/
 | [ADR-007](docs/decisions/ADR-007-age-filter.md) | age < 18 행 제거 (age_group 배정 불가) |
 | [ADR-008](docs/decisions/ADR-008-protected-attributes.md) | 보호 속성(gender/age_group)을 학습 피처에서 제외 |
 | [ADR-009](docs/decisions/ADR-009-credit-history-months.md) | credit_history_months 추가, 씬파일러 판정 완성 |
+| [ADR-010](docs/decisions/ADR-010-thin-filer-types.md) | 씬파일러 유형 분화 (missing_only / history_only / both) |
 
 ## 환경
 

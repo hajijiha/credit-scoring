@@ -53,9 +53,13 @@ simulator:
     - spending_consistency
     - regular_payment_count
     - app_login_frequency
-  target_correlation:
+  target_correlation:                      # SPEC §4 요건. 검증 시 이 범위 안에 있어야 한다.
     min: 0.30
     max: 0.50
+  generation_correlation:                  # ADR-001 v2: 실제 생성 목표는 요건 범위의 하단만 쓴다
+    min: 0.31                              # 하한 0.30 에 여유. 편향 주입 후에도 0.30 이상 유지
+    max: 0.35
+  latent_factor_strength: 0.85             # ADR-001 v2: 대안 5변수가 공유하는 '성실성' 잠재요인 비중
   thin_filer_masked_columns:               # 씬파일러에게 결측 처리할 연체 컬럼
     - NumberOfTime30-59DaysPastDueNotWorse
     - NumberOfTime60-89DaysPastDueNotWorse
@@ -68,6 +72,11 @@ simulator:
     open_credit_lines_sigma: 4.0           # NumberOfOpenCreditLinesAndLoans: x + round(N(0, sigma)), 0 이상
   thin_filer_flag_column: is_thin_filer
   thin_filer_min_missing: 2                # 연체 관련 컬럼 2개 이상 결측이면 씬파일러 (스펙 정의)
+  thin_filer_type_column: thin_filer_type
+  thin_filer_type_mix:                     # ADR-010: 씬파일러 내부 유형 분포 (합 1.0)
+    missing_only: 0.40                     # 연체 3컬럼만 결측, 거래 이력은 정상
+    history_only: 0.30                     # 거래 이력만 12개월 미만, 연체 컬럼은 관측됨
+    both: 0.30                             # 두 조건 모두 해당
   credit_history:                          # ADR-009: 신용카드 거래 이력 개월수
     column: credit_history_months
     min_months_for_normal: 12              # 12개월 미만이면 씬파일러 (스펙 §4)
@@ -127,8 +136,9 @@ features:
   protected:                               # 학습 제외. 공정성 평가 / ThresholdOptimizer 전용 (ADR-008)
     - gender
     - age_group
-  segment:                                 # 학습 제외. 집단 분리 평가 전용 (ADR-009)
+  segment:                                 # 학습 제외. 집단 분리 평가 전용 (ADR-009, ADR-010)
     - is_thin_filer
+    - thin_filer_type
     - credit_history_months
   include_missing_flags_in: traditional    # 연체 결측 플래그는 전통 피처 그룹에 포함
 
@@ -172,6 +182,7 @@ preprocess:
   categorical_columns: []                  # ADR-008: 보호 속성은 One-Hot 하지 않는다(학습 미사용)
   passthrough_columns:                     # 스케일링/인코딩 없이 원본 그대로 유지할 컬럼
     - is_thin_filer
+    - thin_filer_type
     - credit_history_months
     - gender
     - age_group

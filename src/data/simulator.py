@@ -3,10 +3,14 @@
 GMSC 원본에 다음을 합성한다.
 
 1. 인구통계 컬럼: gender(male/female, 무작위 50:50), age_group(실제 age 기반)
-2. 대안 데이터 5변수: target · 소득 · 연령을 신호원으로 생성하고, target 과의
-   상관계수 절댓값이 config 의 simulator.target_correlation 범위(0.3~0.5)에 들도록 맞춘다.
-3. 씬파일러 처리: thin_filer_ratio 비율을 무작위 선정해 연체 3컬럼을 결측 처리하고
-   RevolvingUtilization / NumberOfOpenCreditLinesAndLoans 에 강한 노이즈를 준다.
+2. 대안 데이터 5변수 (ADR-001 v2): target 성분 + **공유 잠재요인(성실성)** + 개별 노이즈.
+   공유 잠재요인은 소득·연령 신호와 공통 노이즈로 구성한다. 개별 |corr| 은
+   simulator.generation_correlation(0.30~0.35) 을 목표로 맞추며, 검증은
+   simulator.target_correlation(0.30~0.50) 범위로 한다.
+3. 씬파일러 처리 (ADR-001, ADR-009, ADR-010): thin_filer_ratio 비율을 무작위 선정한 뒤
+   유형을 셋으로 나눈다 — missing_only / history_only / both.
+   연체 3컬럼 결측과 거래 이력 부족을 유형에 따라 다르게 적용하고,
+   RevolvingUtilization / NumberOfOpenCreditLinesAndLoans 에는 공통으로 강한 노이즈를 준다.
 4. 편향 주입: female / 55+ 집단의 telecom·utility_payment_rate 를 bias_ratio × 0.1 만큼
    하향한다. 타겟은 절대 건드리지 않는다.
 
@@ -56,7 +60,7 @@ def _transform(v: np.ndarray, kind: str) -> np.ndarray:
     raise ValueError(f"알 수 없는 변환 종류: {kind}")
 
 
-def _nuisance_signal(df: pd.DataFrame, rng: np.random.Generator) -> np.ndarray:
+def _nuisance_signal(df: pd.DataFrame) -> np.ndarray:
     """소득·연령 기반 신호. 소득 결측은 중앙값으로 채워 신호 계산에만 쓴다(원본 미변경)."""
     income = df["MonthlyIncome"].astype("float64")
     income = income.fillna(income.median())
@@ -65,13 +69,26 @@ def _nuisance_signal(df: pd.DataFrame, rng: np.random.Generator) -> np.ndarray:
     return 0.7 * income_z + 0.3 * age_z
 
 
-def _latent_with_corr(t_z: np.ndarray, nuisance: np.ndarray, eps: np.ndarray, rho: float) -> np.ndarray:
+def _shared_factor(nuisance: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """ADR-001 v2: 대안 5변수가 공유하는 '금융 성실성' 잠재요인.
+
+    소득·연령 신호와 공통 노이즈로 구성한다. 이 요인이 다섯 변수에 함께 실리기 때문에
+    변수들은 타겟을 조건으로 해도 서로 상관을 갖고, 결합 판별력이 현실적인 수준에 머문다.
+    """
+    return _standardize(0.6 * nuisance + 0.8 * rng.normal(size=len(nuisance)))
+
+
+def _latent_with_corr(
+    t_z: np.ndarray, shared: np.ndarray, eps: np.ndarray, rho: float, factor_strength: float
+) -> np.ndarray:
     """target 과의 상관이 정확히 rho 인 표준정규 잠재변수를 만든다.
 
-    나머지 성분(소득·연령·노이즈)을 t_z 에 대해 직교화한 뒤 결합하므로
-    corr(v, t_z) = rho 가 (표본 기준) 정확히 성립한다.
+    비(非)타겟 성분은 `factor_strength` 만큼 공유 잠재요인을, 나머지를 개별 노이즈로 채운다.
+    그 성분을 t_z 에 대해 직교화하므로 corr(v, t_z) = rho 가 (표본 기준) 정확히 성립한다.
     """
-    m = _standardize(0.6 * nuisance + 0.8 * eps)
+    w = factor_strength
+    m = w * shared + np.sqrt(max(1.0 - w**2, 0.0)) * eps
+    m = _standardize(m)
     m = m - t_z * (float(m @ t_z) / float(t_z @ t_z))   # t_z 성분 제거
     m = _standardize(m)
     return rho * t_z + np.sqrt(max(1.0 - rho**2, 0.0)) * m
@@ -80,10 +97,11 @@ def _latent_with_corr(t_z: np.ndarray, nuisance: np.ndarray, eps: np.ndarray, rh
 def _fit_feature(
     t_z: np.ndarray,
     target: np.ndarray,
-    nuisance: np.ndarray,
+    shared: np.ndarray,
     eps: np.ndarray,
     kind: str,
     goal: float,
+    factor_strength: float,
     max_iter: int = 30,
     tol: float = 1e-3,
 ) -> tuple[np.ndarray, float]:
@@ -93,13 +111,13 @@ def _fit_feature(
     고정점 반복으로 변환 후 상관을 목표에 맞춘다.
     """
     rho = -goal          # 값이 클수록 우량 → 부도와 음의 상관
-    values = _transform(_latent_with_corr(t_z, nuisance, eps, rho), kind)
+    values = _transform(_latent_with_corr(t_z, shared, eps, rho, factor_strength), kind)
     achieved = float(np.corrcoef(values, target)[0, 1])
     for _ in range(max_iter):
         if abs(abs(achieved) - goal) <= tol:
             break
         rho = float(np.clip(rho * goal / max(abs(achieved), 1e-6), -0.99, -0.01))
-        values = _transform(_latent_with_corr(t_z, nuisance, eps, rho), kind)
+        values = _transform(_latent_with_corr(t_z, shared, eps, rho, factor_strength), kind)
         achieved = float(np.corrcoef(values, target)[0, 1])
     return values, achieved
 
@@ -131,24 +149,27 @@ def add_demographics(df: pd.DataFrame, config: dict[str, Any] | None = None) -> 
 
 
 def add_alternative_features(df: pd.DataFrame, config: dict[str, Any] | None = None) -> pd.DataFrame:
-    """대안 데이터 5변수를 생성한다 (ADR-001)."""
+    """대안 데이터 5변수를 생성한다 (ADR-001 v2).
+
+    각 변수 = target 성분 + 공유 잠재요인(성실성) + 개별 노이즈.
+    개별 상관은 generation_correlation 범위를 목표로 맞춘다.
+    """
     cfg = config if config is not None else load_config()
     sim = cfg["simulator"]
     features = sim["alternative_features"]
-    lo = sim["target_correlation"]["min"]
-    hi = sim["target_correlation"]["max"]
+    gen = sim["generation_correlation"]
+    lo, hi = gen["min"], gen["max"]
+    factor_strength = sim["latent_factor_strength"]
 
     df = df.copy()
     target = df[cfg["data"]["target_column"]].astype("float64").to_numpy()
     t_z = _standardize(target)
-    nuisance = _nuisance_signal(df, np.random.default_rng(sim["random_state"]))
     rng = np.random.default_rng(sim["random_state"])
+    shared = _shared_factor(_nuisance_signal(df), rng)
 
-    # 목표 상관은 설정 범위 [min, max] 안에 여유를 두고 균등 배치한다.
     # 편향 주입 대상 피처(telecom/utility)는 apply_bias 에서 값이 하향되면서 상관이 함께
     # 떨어지므로, 여유가 큰 상단 목표값을 배정해 bias_ratio 를 올려도 범위를 벗어나지 않게 한다.
-    margin = 0.02 * (hi - lo)
-    ladder = sorted(np.linspace(lo + margin, hi - margin, len(features)), reverse=True)
+    ladder = sorted(np.linspace(lo, hi, len(features)), reverse=True)
     biased = [f for f in features if f in sim["biased_features"]]
     ordered = biased + [f for f in features if f not in biased]
     goal_of = dict(zip(ordered, ladder))
@@ -157,11 +178,26 @@ def add_alternative_features(df: pd.DataFrame, config: dict[str, Any] | None = N
         goal = goal_of[feature]
         eps = rng.normal(size=len(df))
         values, achieved = _fit_feature(
-            t_z, target, nuisance, eps, _FEATURE_KIND[feature], float(goal)
+            t_z, target, shared, eps, _FEATURE_KIND[feature], float(goal), factor_strength
         )
         df[feature] = values
         logger.info("%-24s 목표 |corr|=%.3f -> 실제 corr=%+.4f", feature, goal, achieved)
+
+    within = _within_class_correlation(df, features, target)
+    logger.info("공유 잠재요인 강도 %.2f -> 클래스 내부 평균 상관 %.4f", factor_strength, within)
     return df
+
+
+def _within_class_correlation(df: pd.DataFrame, features: list[str], target: np.ndarray) -> float:
+    """타겟을 조건으로 한 대안 피처 간 평균 상관. 공유 요인이 작동하는지의 지표."""
+    values = []
+    for cls in (0, 1):
+        block = df.loc[target == cls, features]
+        if len(block) < 2:
+            continue
+        corr = block.corr().to_numpy()
+        values.append(corr[np.triu_indices(len(features), 1)].mean())
+    return float(np.mean(values)) if values else float("nan")
 
 
 def apply_thin_filer(
@@ -169,11 +205,14 @@ def apply_thin_filer(
     config: dict[str, Any] | None = None,
     thin_filer_ratio: float | None = None,
 ) -> pd.DataFrame:
-    """씬파일러를 무작위 선정해 전통 피처의 정보량을 줄인다 (ADR-001).
+    """씬파일러를 무작위 선정하고 유형별로 전통 피처의 정보량을 줄인다 (ADR-001, ADR-009, ADR-010).
 
-    - 연체 3컬럼 결측 처리
-    - RevolvingUtilization / NumberOfOpenCreditLinesAndLoans 에 강한 노이즈
-    - is_thin_filer 는 선정 마스크가 아니라 '연체 관련 컬럼 2개 이상 결측' 정의로 산출한다.
+    유형(thin_filer_type):
+      - missing_only : 연체 3컬럼 결측, 거래 이력은 12개월 이상
+      - history_only : 거래 이력 12개월 미만, 연체 컬럼은 관측됨
+      - both         : 둘 다
+    is_thin_filer 는 선정 마스크가 아니라 SPEC §4 정의
+    (연체 컬럼 2개 이상 결측 OR 이력 12개월 미만)로 산출한다.
     """
     cfg = config if config is not None else load_config()
     sim = cfg["simulator"]
@@ -187,11 +226,26 @@ def apply_thin_filer(
     if n_thin:
         selected[rng.choice(n, size=n_thin, replace=False)] = True
 
+    # ADR-010: 선정된 씬파일러를 세 유형으로 나눈다.
+    type_col = sim["thin_filer_type_column"]
+    mix = sim["thin_filer_type_mix"]
+    kinds = list(mix)
+    probs = np.array([mix[k] for k in kinds], dtype="float64")
+    probs = probs / probs.sum()
+    types = np.full(n, "none", dtype=object)
+    if n_thin:
+        types[selected] = rng.choice(kinds, size=n_thin, p=probs)
+    df[type_col] = types
+
+    mask_delinquency = np.isin(types, ["missing_only", "both"])
+    short_history = np.isin(types, ["history_only", "both"])
+
     masked = sim["thin_filer_masked_columns"]
     for col in masked:
         df[col] = df[col].astype("float64")
-        df.loc[selected, col] = np.nan
+        df.loc[mask_delinquency, col] = np.nan
 
+    # 노이즈는 씬파일러 전체에 적용한다(유형과 무관하게 전통 피처 신뢰도가 낮다).
     noise = sim["thin_filer_noise"]
     rev_col, open_col = sim["thin_filer_noised_columns"]
     if selected.any():
@@ -201,7 +255,7 @@ def apply_thin_filer(
         shift = np.round(rng.normal(0.0, noise["open_credit_lines_sigma"], size=selected.sum()))
         df.loc[idx, open_col] = np.clip(df.loc[idx, open_col].to_numpy() + shift, 0, None)
 
-    # ADR-009: 신용카드 거래 이력 개월수. 씬파일러는 3~11개월, 일반은 12~120개월.
+    # ADR-009: 신용카드 거래 이력 개월수. 이력 부족 유형만 3~11개월.
     hist = sim["credit_history"]
     hist_col = hist["column"]
     age_z = _standardize(df["age"].astype("float64").to_numpy())
@@ -210,7 +264,7 @@ def apply_thin_filer(
     thin_lo, thin_hi = hist["thin_range"]
     norm_lo, norm_hi = hist["normal_range"]
     months = np.where(
-        selected,
+        short_history,
         np.round(thin_lo + (thin_hi - thin_lo) * u),
         np.round(norm_lo + (norm_hi - norm_lo) * u),
     )
@@ -223,10 +277,10 @@ def apply_thin_filer(
     df[flag_col] = (by_missing | by_history).astype(int)
 
     logger.info(
-        "씬파일러 처리: 선정 %s건(%.3f) / %s=1 %s건(%.3f) / 연체 3컬럼 결측률 %s",
+        "씬파일러 처리: 선정 %s건(%.3f) / %s=1 %s건(%.3f) / 유형 %s",
         f"{int(selected.sum()):,}", selected.mean(),
         flag_col, f"{int(df[flag_col].sum()):,}", df[flag_col].mean(),
-        {c: round(float(df[c].isna().mean()), 4) for c in masked},
+        df.loc[selected, type_col].value_counts().to_dict() if selected.any() else {},
     )
     logger.info(
         "씬파일러 판정 조건별: 연체결측 %s건 / 이력<%d개월 %s건 / 교집합 %s건 / 합집합 %s건",
@@ -234,14 +288,9 @@ def apply_thin_filer(
         f"{int((by_missing & by_history).sum()):,}", f"{int((by_missing | by_history).sum()):,}",
     )
     logger.info(
-        "%s: 씬파일러 %.1f~%.1f개월(평균 %.1f) / 일반 %.1f~%.1f개월(평균 %.1f) / age 상관 %+.4f",
-        hist_col,
-        df.loc[selected, hist_col].min() if selected.any() else float("nan"),
-        df.loc[selected, hist_col].max() if selected.any() else float("nan"),
-        df.loc[selected, hist_col].mean() if selected.any() else float("nan"),
-        df.loc[~selected, hist_col].min(), df.loc[~selected, hist_col].max(),
-        df.loc[~selected, hist_col].mean(),
-        float(np.corrcoef(df[hist_col], df["age"])[0, 1]),
+        "연체 3컬럼 결측률 %s | %s age 상관 %+.4f",
+        {c: round(float(df[c].isna().mean()), 4) for c in masked},
+        hist_col, float(np.corrcoef(df[hist_col], df["age"])[0, 1]),
     )
     return df
 
