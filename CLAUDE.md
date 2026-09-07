@@ -45,6 +45,8 @@ credit-scoring/
 - **공정성은 Fairlearn 만 사용한다. AIF360 은 도입 금지** (Python 3.12 비호환).
 - **대시보드에서 `.pkl` / `.joblib` 를 직접 로드하지 않는다.** 모든 추론은 FastAPI HTTP 엔드포인트를 경유한다.
 - **테스트 세트의 라벨을 학습·튜닝·임계값 선택에 사용하지 않는다.** 임계값 조정은 valid 세트로 한다.
+- **보호 속성(`gender`, `age_group`)과 세그먼트 컬럼(`is_thin_filer`, `credit_history_months`)은
+  학습 피처에 넣지 않는다.** 학습 X 는 `config.features` 의 traditional / alternative 로만 구성한다 (ADR-008, ADR-009).
 - 커밋 메시지는 `type: 설명` 형식 (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`).
 - **새로운 설계 결정이 생기면 먼저 사용자에게 묻는다.** 확정되면 `docs/decisions/ADR-XXX-*.md` 로 기록한다.
 
@@ -59,6 +61,8 @@ credit-scoring/
 | [ADR-005](docs/decisions/ADR-005-anova-unit.md) | ANOVA 관측 단위 = RepeatedStratifiedKFold 5×4 |
 | [ADR-006](docs/decisions/ADR-006-main-dataset.md) | 메인 데이터셋 = GMSC |
 | [ADR-007](docs/decisions/ADR-007-age-filter.md) | age < 18 행 제거 (age_group 배정 불가) |
+| [ADR-008](docs/decisions/ADR-008-protected-attributes.md) | 보호 속성(gender/age_group)을 학습 피처에서 제외 |
+| [ADR-009](docs/decisions/ADR-009-credit-history-months.md) | credit_history_months 추가, 씬파일러 판정 완성 |
 
 ## 환경
 

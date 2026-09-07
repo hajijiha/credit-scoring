@@ -68,6 +68,12 @@ simulator:
     open_credit_lines_sigma: 4.0           # NumberOfOpenCreditLinesAndLoans: x + round(N(0, sigma)), 0 이상
   thin_filer_flag_column: is_thin_filer
   thin_filer_min_missing: 2                # 연체 관련 컬럼 2개 이상 결측이면 씬파일러 (스펙 정의)
+  credit_history:                          # ADR-009: 신용카드 거래 이력 개월수
+    column: credit_history_months
+    min_months_for_normal: 12              # 12개월 미만이면 씬파일러 (스펙 §4)
+    thin_range: [3, 11]
+    normal_range: [12, 120]
+    age_weight: 0.35                       # age 와의 약한 양의 상관
   gender_column: gender
   age_group_column: age_group
   age_group_bins:                          # [하한, 상한) — 상한 null 은 무한대
@@ -99,6 +105,57 @@ cv:
   n_repeats: 4                             # 그룹당 관측치 n = 5 x 4 = 20
   random_state: 42
 
+features:
+  # ADR-008: 보호 속성은 학습 피처에서 제외한다. ADR-009: 씬파일러 판정 근거 컬럼도 제외한다.
+  traditional:                             # GMSC 원본 전통 신용 피처
+    - RevolvingUtilizationOfUnsecuredLines
+    - age
+    - NumberOfTime30-59DaysPastDueNotWorse
+    - DebtRatio
+    - MonthlyIncome
+    - NumberOfOpenCreditLinesAndLoans
+    - NumberOfTimes90DaysLate
+    - NumberRealEstateLoansOrLines
+    - NumberOfTime60-89DaysPastDueNotWorse
+    - NumberOfDependents
+  alternative:                             # 대안 데이터 5변수
+    - telecom_payment_rate
+    - utility_payment_rate
+    - spending_consistency
+    - regular_payment_count
+    - app_login_frequency
+  protected:                               # 학습 제외. 공정성 평가 / ThresholdOptimizer 전용 (ADR-008)
+    - gender
+    - age_group
+  segment:                                 # 학습 제외. 집단 분리 평가 전용 (ADR-009)
+    - is_thin_filer
+    - credit_history_months
+  include_missing_flags_in: traditional    # 연체 결측 플래그는 전통 피처 그룹에 포함
+
+models:
+  # 하이퍼파라미터도 코드가 아니라 여기서 읽는다.
+  algorithms: [logistic_regression, xgboost, lightgbm]
+  imbalance_methods: [class_weight, smote]
+  feature_groups: [traditional_only, alternative_only, combined]
+  model_version: v1.0
+  n_jobs: 4                                # 14코어 환경에서 4가 가장 빠름(스레드 경합 회피)
+  logistic_regression:
+    solver: lbfgs
+    max_iter: 1000
+  xgboost:
+    n_estimators: 300
+    max_depth: 5
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    tree_method: hist
+  lightgbm:
+    n_estimators: 300
+    num_leaves: 31
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+
 preprocess:
   # 중앙값 대체 대상. 연체 3컬럼은 여기에 넣지 않는다(아래 사유 참조).
   median_impute_columns:
@@ -112,11 +169,12 @@ preprocess:
     - NumberOfTimes90DaysLate
   missing_sentinel: -1
   missing_flag_suffix: _is_missing
-  categorical_columns:
+  categorical_columns: []                  # ADR-008: 보호 속성은 One-Hot 하지 않는다(학습 미사용)
+  passthrough_columns:                     # 스케일링/인코딩 없이 원본 그대로 유지할 컬럼
+    - is_thin_filer
+    - credit_history_months
     - gender
     - age_group
-  passthrough_columns:                     # 스케일링/인코딩 없이 통과시킬 컬럼
-    - is_thin_filer
   scaler: standard                         # standard | minmax
   output_dir: data/processed
   scaler_file: preprocessor.joblib

@@ -201,14 +201,47 @@ def apply_thin_filer(
         shift = np.round(rng.normal(0.0, noise["open_credit_lines_sigma"], size=selected.sum()))
         df.loc[idx, open_col] = np.clip(df.loc[idx, open_col].to_numpy() + shift, 0, None)
 
+    # ADR-009: 신용카드 거래 이력 개월수. 씬파일러는 3~11개월, 일반은 12~120개월.
+    hist = sim["credit_history"]
+    hist_col = hist["column"]
+    age_z = _standardize(df["age"].astype("float64").to_numpy())
+    w = hist["age_weight"]
+    u = norm.cdf(w * age_z + np.sqrt(max(1.0 - w**2, 0.0)) * rng.normal(size=n))
+    thin_lo, thin_hi = hist["thin_range"]
+    norm_lo, norm_hi = hist["normal_range"]
+    months = np.where(
+        selected,
+        np.round(thin_lo + (thin_hi - thin_lo) * u),
+        np.round(norm_lo + (norm_hi - norm_lo) * u),
+    )
+    df[hist_col] = months.astype("int64")
+
+    # SPEC §4 정의: (연체 관련 컬럼 2개 이상 결측) OR (거래 이력 12개월 미만)
+    by_missing = df[masked].isna().sum(axis=1) >= sim["thin_filer_min_missing"]
+    by_history = df[hist_col] < hist["min_months_for_normal"]
     flag_col = sim["thin_filer_flag_column"]
-    df[flag_col] = (df[masked].isna().sum(axis=1) >= sim["thin_filer_min_missing"]).astype(int)
+    df[flag_col] = (by_missing | by_history).astype(int)
 
     logger.info(
         "씬파일러 처리: 선정 %s건(%.3f) / %s=1 %s건(%.3f) / 연체 3컬럼 결측률 %s",
         f"{int(selected.sum()):,}", selected.mean(),
         flag_col, f"{int(df[flag_col].sum()):,}", df[flag_col].mean(),
         {c: round(float(df[c].isna().mean()), 4) for c in masked},
+    )
+    logger.info(
+        "씬파일러 판정 조건별: 연체결측 %s건 / 이력<%d개월 %s건 / 교집합 %s건 / 합집합 %s건",
+        f"{int(by_missing.sum()):,}", hist["min_months_for_normal"], f"{int(by_history.sum()):,}",
+        f"{int((by_missing & by_history).sum()):,}", f"{int((by_missing | by_history).sum()):,}",
+    )
+    logger.info(
+        "%s: 씬파일러 %.1f~%.1f개월(평균 %.1f) / 일반 %.1f~%.1f개월(평균 %.1f) / age 상관 %+.4f",
+        hist_col,
+        df.loc[selected, hist_col].min() if selected.any() else float("nan"),
+        df.loc[selected, hist_col].max() if selected.any() else float("nan"),
+        df.loc[selected, hist_col].mean() if selected.any() else float("nan"),
+        df.loc[~selected, hist_col].min(), df.loc[~selected, hist_col].max(),
+        df.loc[~selected, hist_col].mean(),
+        float(np.corrcoef(df[hist_col], df["age"])[0, 1]),
     )
     return df
 

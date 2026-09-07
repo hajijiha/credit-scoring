@@ -146,6 +146,35 @@ class Preprocessor:
         return joblib.load(Path(path))
 
 
+def feature_columns(config: dict[str, Any], group: str) -> list[str]:
+    """피처 그룹별 학습 컬럼 목록 (ADR-008, ADR-009).
+
+    group: "traditional_only" | "alternative_only" | "combined"
+    보호 속성(gender, age_group)과 세그먼트 컬럼(is_thin_filer, credit_history_months)은
+    어떤 그룹에도 포함되지 않는다.
+    """
+    feats = config["features"]
+    pre = config["preprocess"]
+    flags = [
+        f"{c}{pre['missing_flag_suffix']}" for c in pre["missing_indicator_columns"]
+    ]
+    traditional = list(feats["traditional"])
+    if feats.get("include_missing_flags_in") == "traditional":
+        traditional += flags
+
+    groups = {
+        "traditional_only": traditional,
+        "alternative_only": list(feats["alternative"]),
+        "combined": traditional + list(feats["alternative"]),
+    }
+    if group not in groups:
+        raise ValueError(f"알 수 없는 피처 그룹: {group} (가능: {list(groups)})")
+    return groups[group]
+
+
+FEATURE_GROUPS = ("traditional_only", "alternative_only", "combined")
+
+
 def split_data(
     df: pd.DataFrame, config: dict[str, Any] | None = None
 ) -> dict[str, tuple[pd.DataFrame, pd.Series]]:

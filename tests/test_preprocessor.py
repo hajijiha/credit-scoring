@@ -8,7 +8,13 @@ import pytest
 
 from src.config import load_config
 from src.data import simulator as sim
-from src.data.preprocessor import Preprocessor, prepare, split_data
+from src.data.preprocessor import (
+    FEATURE_GROUPS,
+    Preprocessor,
+    feature_columns,
+    prepare,
+    split_data,
+)
 from tests.test_simulator import _fake_gmsc
 
 
@@ -159,27 +165,57 @@ def test_no_missing_values_after_preprocess(prepared):
 
 # --- 인코딩 ---------------------------------------------------------------
 
-def test_categorical_one_hot(prepared, config):
-    """gender / age_group 이 One-Hot 으로 바뀌고 원본 컬럼은 사라져야 한다."""
+def test_protected_attributes_preserved_raw(prepared, config):
+    """ADR-008: 보호 속성은 One-Hot 하지 않고 원본 값 그대로 유지한다."""
     processed, pre = prepared
     train_x = processed["train"][0]
-    for col in config["preprocess"]["categorical_columns"]:
-        assert col not in train_x.columns
-        cats = pre.categories[col]
-        assert cats, f"{col} 카테고리가 비어 있다"
-        for cat in cats:
-            assert f"{col}_{cat}" in train_x.columns
-        # One-Hot 이므로 행마다 정확히 하나만 1 이어야 한다.
-        block = train_x[[f"{col}_{c}" for c in cats]]
-        assert (block.sum(axis=1) == 1).all()
+    for col in config["features"]["protected"]:
+        assert col in train_x.columns, f"{col} 이 사라졌다 (공정성 평가에 필요)"
+        # One-Hot 컬럼이 만들어지지 않아야 한다.
+        assert not [c for c in train_x.columns if c.startswith(f"{col}_")]
+    assert set(train_x["gender"].unique()) <= set(config["fairness"]["groups"]["gender"])
+    assert set(train_x["age_group"].unique()) <= set(config["fairness"]["groups"]["age_group"])
+    assert pre.categories == {}, "보호 속성이 One-Hot 대상에 남아 있다"
 
 
-def test_passthrough_columns_not_scaled(prepared, config):
-    """is_thin_filer 같은 통과 컬럼은 0/1 을 유지해야 한다."""
+def test_protected_and_segment_excluded_from_features(config):
+    """ADR-008 / ADR-009: 보호 속성과 세그먼트 컬럼은 어떤 피처 그룹에도 없어야 한다."""
+    excluded = set(config["features"]["protected"]) | set(config["features"]["segment"])
+    for group in FEATURE_GROUPS:
+        cols = set(feature_columns(config, group))
+        assert not (cols & excluded), f"{group} 에 제외 대상이 포함됨: {cols & excluded}"
+
+
+def test_feature_groups_composition(config, prepared):
+    """피처 그룹 구성: traditional 은 결측 플래그 포함, combined 는 두 그룹의 합집합."""
     processed, _ = prepared
-    for col in config["preprocess"]["passthrough_columns"]:
-        values = processed["train"][0][col]
-        assert set(values.unique()) <= {0, 1}
+    train_x = processed["train"][0]
+    traditional = feature_columns(config, "traditional_only")
+    alternative = feature_columns(config, "alternative_only")
+    combined = feature_columns(config, "combined")
+
+    assert set(combined) == set(traditional) | set(alternative)
+    assert not set(traditional) & set(alternative)
+    suffix = config["preprocess"]["missing_flag_suffix"]
+    assert [c for c in traditional if c.endswith(suffix)], "결측 플래그가 전통 그룹에 없다"
+    for group in FEATURE_GROUPS:
+        for col in feature_columns(config, group):
+            assert col in train_x.columns, f"{col} 이 전처리 결과에 없다"
+
+
+def test_unknown_feature_group_raises(config):
+    with pytest.raises(ValueError):
+        feature_columns(config, "nope")
+
+
+def test_numeric_passthrough_not_scaled(prepared, config):
+    """is_thin_filer 는 0/1, credit_history_months 는 원래 개월수 범위를 유지해야 한다."""
+    processed, _ = prepared
+    train_x = processed["train"][0]
+    assert set(train_x["is_thin_filer"].unique()) <= {0, 1}
+    months = train_x["credit_history_months"]
+    assert months.min() >= config["simulator"]["credit_history"]["thin_range"][0]
+    assert months.max() <= config["simulator"]["credit_history"]["normal_range"][1]
 
 
 def test_save_and_load_roundtrip(prepared, tmp_path):

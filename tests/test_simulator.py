@@ -103,12 +103,35 @@ def test_thin_filer_masks_delinquency_columns(simulated, config):
 
 
 def test_thin_filer_flag_follows_spec_definition(simulated, config):
-    """is_thin_filer 정의: 연체 관련 컬럼 2개 이상 결측."""
-    masked = config["simulator"]["thin_filer_masked_columns"]
-    threshold = config["simulator"]["thin_filer_min_missing"]
-    flag = config["simulator"]["thin_filer_flag_column"]
-    expected = (simulated[masked].isna().sum(axis=1) >= threshold).astype(int)
+    """is_thin_filer 정의 (SPEC §4): 연체 컬럼 2개 이상 결측 OR 거래 이력 12개월 미만."""
+    sim_cfg = config["simulator"]
+    masked = sim_cfg["thin_filer_masked_columns"]
+    hist = sim_cfg["credit_history"]
+    flag = sim_cfg["thin_filer_flag_column"]
+    by_missing = simulated[masked].isna().sum(axis=1) >= sim_cfg["thin_filer_min_missing"]
+    by_history = simulated[hist["column"]] < hist["min_months_for_normal"]
+    expected = (by_missing | by_history).astype(int)
     pd.testing.assert_series_equal(simulated[flag], expected, check_names=False)
+
+
+def test_credit_history_months_ranges(simulated, config):
+    """ADR-009: 씬파일러 3~11개월, 일반 12~120개월."""
+    hist = config["simulator"]["credit_history"]
+    col = hist["column"]
+    flag = config["simulator"]["thin_filer_flag_column"]
+    thin = simulated.loc[simulated[flag] == 1, col]
+    normal = simulated.loc[simulated[flag] == 0, col]
+    assert thin.min() >= hist["thin_range"][0] and thin.max() <= hist["thin_range"][1]
+    assert normal.min() >= hist["normal_range"][0] and normal.max() <= hist["normal_range"][1]
+    assert (thin < hist["min_months_for_normal"]).all()
+    assert (normal >= hist["min_months_for_normal"]).all()
+
+
+def test_credit_history_weak_positive_age_correlation(simulated, config):
+    """ADR-009: age 와 약한 양의 상관. 강하면 age 의 복제가 된다."""
+    col = config["simulator"]["credit_history"]["column"]
+    corr = float(np.corrcoef(simulated[col], simulated["age"])[0, 1])
+    assert 0.05 < corr < 0.60, f"age 상관 {corr:.4f} 가 '약한 양의 상관' 범위를 벗어남"
 
 
 def test_thin_filer_noise_increases_dispersion(config):
