@@ -21,6 +21,7 @@ credit-scoring/
 ├── requirements.txt       # 버전 고정. 확정 스냅샷은 requirements.lock
 ├── .env.example
 ├── config/config.yaml     # 모든 설정값의 단일 출처
+├── docs/SPEC.md           # 과제 원문 (기능 요구사항 F1~F8의 출처)
 ├── data/raw/              # cs-training.csv (GMSC, git 제외)
 ├── src/
 │   ├── data/              # 로더, 대안 데이터 시뮬레이터, 전처리
@@ -56,8 +57,11 @@ credit-scoring/
 | [ADR-004](docs/decisions/ADR-004-mitigation.md) | Fairlearn ThresholdOptimizer (equalized_odds) |
 | [ADR-005](docs/decisions/ADR-005-anova-unit.md) | ANOVA 관측 단위 = RepeatedStratifiedKFold 5×4 |
 | [ADR-006](docs/decisions/ADR-006-main-dataset.md) | 메인 데이터셋 = GMSC |
+| [ADR-007](docs/decisions/ADR-007-age-filter.md) | age < 18 행 제거 (age_group 배정 불가) |
 
 ## 환경
 
 - Python 3.12.3 / venv 는 프로젝트 루트의 `.venv` (다른 프로젝트 venv 재사용 금지)
+- Docker 29.2.1 / Compose v5.1.0 사용 가능
+- 테스트: `.venv/bin/python -m pytest`
 - 활성화: `source .venv/bin/activate`
