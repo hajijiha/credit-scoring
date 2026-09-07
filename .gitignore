@@ -1,0 +1,21 @@
+# 데이터 (원본은 재현 스크립트로 내려받음)
+data/raw/*
+!data/raw/.gitkeep
+
+# 학습 산출물
+models/*.pkl
+models/*.joblib
+!models/.gitkeep
+mlruns/
+
+# 파이썬 / 가상환경
+.venv/
+__pycache__/
+*.py[cod]
+
+# 비밀값
+.env
+
+# 노트북
+*.ipynb_checkpoints
+.ipynb_checkpoints/

@@ -1,0 +1,16 @@
+# 스켈레톤: 서비스 이름과 포트만 잡아둔 상태. command/volumes 는 구현 단계에서 채운다.
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+
+  dashboard:
+    build: .
+    ports:
+      - "8501:8501"
+
+  mlflow:
+    build: .
+    ports:
+      - "5000:5000"

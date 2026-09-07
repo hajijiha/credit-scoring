@@ -1,0 +1,44 @@
+# 대안신용평가 ML 시스템 — 의존성 (Python 3.12)
+# 전체 전이 의존성 스냅샷은 requirements.lock 참조.
+# 공정성 라이브러리는 Fairlearn 만 사용한다. AIF360 은 Python 3.12 미지원이므로 도입 금지.
+
+# --- 데이터 처리 ---
+pandas==3.0.5
+numpy==2.5.3
+scipy==1.18.1
+
+# --- 모델링 ---
+scikit-learn==1.9.0
+xgboost==3.4.1
+lightgbm==4.7.0
+imbalanced-learn==0.14.2
+joblib==1.6.0
+
+# --- 설명가능성 / 공정성 ---
+shap==0.52.0
+fairlearn==0.14.0
+
+# --- 통계 ---
+statsmodels==0.15.0
+
+# --- 실험 추적 ---
+mlflow==3.16.0
+
+# --- 서빙 / UI ---
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+streamlit==1.63.0
+
+# --- 시각화 ---
+matplotlib==3.11.1
+seaborn==0.13.2
+
+# --- 유틸 ---
+pyyaml==6.0.3
+python-dotenv==1.2.3
+requests==2.34.2
+ucimlrepo==0.0.7
+
+# --- 테스트 ---
+pytest==9.1.1

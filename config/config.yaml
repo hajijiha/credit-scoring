@@ -1,0 +1,89 @@
+# 대안신용평가 ML 시스템 - 단일 설정 파일
+# 규칙: 모든 설정값은 이 파일에만 둔다. 코드에 상수를 하드코딩하지 않는다.
+# 규칙: 모든 경로는 프로젝트 루트 기준 상대경로다. 절대경로 금지.
+
+project:
+  name: credit-scoring
+  random_state: 42
+
+paths:
+  data_raw: data/raw
+  models: models
+  mlruns: mlruns
+
+data:
+  main_dataset: gmsc                       # ADR-006
+  gmsc_file: cs-training.csv
+  target_column: SeriousDlqin2yrs
+
+ports:
+  api: 8000
+  dashboard: 8501
+  mlflow: 5000
+
+split:
+  train: 0.70
+  valid: 0.15
+  test: 0.15
+  random_state: 42
+  stratify: true
+
+thresholds:
+  approval_threshold: 0.30                 # p_default < 0.30 이면 승인 (ADR-003)
+  di_ratio_min: 0.80                       # Disparate Impact 하한
+  di_ratio_max: 1.25                       # Disparate Impact 상한
+  eo_diff_max: 0.10                        # Equalized Odds 차이 상한
+
+scoring:
+  # score = 1000 * (1 - p_default)  (ADR-003)
+  score_max: 1000
+  grade_cutoffs:                           # 이상(>=) 기준, 미달 시 E
+    A: 800
+    B: 650
+    C: 500
+    D: 350
+
+simulator:
+  thin_filer_ratio: 0.30                   # ADR-001
+  bias_ratio: 0.10                         # ADR-002
+  random_state: 42
+  alternative_features:
+    - telecom_payment_rate
+    - utility_payment_rate
+    - spending_consistency
+    - regular_payment_count
+    - app_login_frequency
+  target_correlation:
+    min: 0.30
+    max: 0.50
+  thin_filer_masked_columns:               # 씬파일러에게 결측 처리할 연체 컬럼
+    - NumberOfTime30-59DaysPastDueNotWorse
+    - NumberOfTime60-89DaysPastDueNotWorse
+    - NumberOfTimes90DaysLate
+  thin_filer_noised_columns:               # 씬파일러에게 강한 노이즈를 주입할 컬럼
+    - RevolvingUtilizationOfUnsecuredLines
+    - NumberOfOpenCreditLinesAndLoans
+
+fairness:
+  library: fairlearn                       # AIF360 금지 (ADR-004 / Python 3.12 비호환)
+  sensitive_attributes:
+    - gender
+    - age_group
+  groups:
+    gender: [male, female]
+    age_group: ["20-34", "35-54", "55+"]
+  disadvantaged_groups:                    # ADR-002 에서 측정 편향을 주입하는 집단
+    gender: female
+    age_group: "55+"
+  mitigation:
+    method: threshold_optimizer            # Fairlearn ThresholdOptimizer (ADR-004)
+    constraints: equalized_odds
+
+cv:
+  n_splits: 5                              # RepeatedStratifiedKFold (ADR-005)
+  n_repeats: 4                             # 그룹당 관측치 n = 5 x 4 = 20
+  random_state: 42
+
+mlflow:
+  tracking_uri: file:./mlruns
+  experiment_name: credit-scoring
