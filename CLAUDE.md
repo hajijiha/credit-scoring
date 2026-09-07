@@ -24,6 +24,7 @@ credit-scoring/
 ├── docs/SPEC.md           # 과제 원문 (기능 요구사항 F1~F8의 출처)
 ├── data/raw/              # cs-training.csv (GMSC, git 제외)
 ├── src/
+│   ├── config.py          # config.yaml 로딩 · 경로 해석 (설정 접근의 유일한 진입점)
 │   ├── data/              # 로더, 대안 데이터 시뮬레이터, 전처리
 │   ├── models/            # 학습 파이프라인
 │   ├── explainer/         # SHAP

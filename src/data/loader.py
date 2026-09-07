@@ -8,52 +8,41 @@
 from __future__ import annotations
 
 import logging
-import os
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
+
+from src.config import PROJECT_ROOT, load_config, resolve_path
 
 logger = logging.getLogger(__name__)
-
-# src/data/loader.py -> src/data -> src -> 프로젝트 루트
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # ADR-007: 성년 미만은 age_group(20-34/35-54/55+) 배정이 불가능하므로 제거한다.
 MIN_AGE = 18
 
 
-def load_config(config_path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
-    """config.yaml 을 읽어 dict 로 반환한다.
-
-    경로 우선순위: 인자 > 환경변수 CONFIG_PATH > 기본값 config/config.yaml
-    상대경로는 프로젝트 루트 기준으로 해석한다.
-    """
-    raw = config_path or os.getenv("CONFIG_PATH") or "config/config.yaml"
-    path = Path(raw)
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
-    with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def resolve_path(relative: str) -> Path:
-    """config 의 상대경로를 프로젝트 루트 기준 절대경로로 변환한다."""
-    return PROJECT_ROOT / relative
+def frame_profile(df: pd.DataFrame) -> str:
+    """컬럼명 / dtype / 결측 건수 / 결측 비율 표를 문자열로 만든다."""
+    name_w = max([len(str(c)) for c in df.columns] + [len("column")])
+    type_w = max([len(str(t)) for t in df.dtypes] + [len("dtype")])
+    header = f"{'column':<{name_w}}  {'dtype':<{type_w}}  {'missing':>10}  {'ratio':>7}"
+    lines = [header, "-" * len(header)]
+    n_rows = len(df)
+    for col in df.columns:
+        n_missing = int(df[col].isna().sum())
+        ratio = (n_missing / n_rows * 100) if n_rows else 0.0
+        lines.append(
+            f"{col!s:<{name_w}}  {df[col].dtype!s:<{type_w}}  {n_missing:>10,}  {ratio:>6.2f}%"
+        )
+    return "\n".join(lines)
 
 
 def _log_frame_profile(df: pd.DataFrame, name: str) -> None:
-    """컬럼명 / dtype / 결측 비율을 로그로 남긴다."""
-    logger.info("[%s] shape=%s", name, df.shape)
-    logger.info("[%s] %-42s %-10s %10s %8s", name, "column", "dtype", "missing", "ratio")
-    for col in df.columns:
-        n_missing = int(df[col].isna().sum())
-        ratio = n_missing / len(df) if len(df) else 0.0
-        logger.info(
-            "[%s] %-42s %-10s %10s %7.2f%%",
-            name, col, str(df[col].dtype), f"{n_missing:,}", ratio * 100,
-        )
+    """컬럼 프로파일을 로그로 남긴다.
+
+    표 전체를 한 개의 로그 레코드로 내보낸다. 행마다 따로 찍으면 로그 핸들러의
+    프리픽스·줄바꿈 처리에 따라 표가 어긋나 보일 수 있기 때문이다.
+    """
+    logger.info("[%s] shape=%s\n%s", name, df.shape, frame_profile(df))
 
 
 def load_gmsc(config: dict[str, Any] | None = None) -> pd.DataFrame:

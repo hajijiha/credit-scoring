@@ -63,6 +63,21 @@ simulator:
   thin_filer_noised_columns:               # 씬파일러에게 강한 노이즈를 주입할 컬럼
     - RevolvingUtilizationOfUnsecuredLines
     - NumberOfOpenCreditLinesAndLoans
+  thin_filer_noise:                        # 노이즈 강도
+    revolving_lognormal_sigma: 1.0         # RevolvingUtilization: x * exp(N(0, sigma))
+    open_credit_lines_sigma: 4.0           # NumberOfOpenCreditLinesAndLoans: x + round(N(0, sigma)), 0 이상
+  thin_filer_flag_column: is_thin_filer
+  thin_filer_min_missing: 2                # 연체 관련 컬럼 2개 이상 결측이면 씬파일러 (스펙 정의)
+  gender_column: gender
+  age_group_column: age_group
+  age_group_bins:                          # [하한, 상한) — 상한 null 은 무한대
+    - {label: "20-34", min: 18, max: 35}
+    - {label: "35-54", min: 35, max: 55}
+    - {label: "55+",   min: 55, max: null}
+  biased_features:                         # ADR-002: 측정 편향을 주입할 대안 피처
+    - telecom_payment_rate
+    - utility_payment_rate
+  bias_shift_per_ratio: 0.1                # 하향폭 = bias_ratio * 이 값 (집단별로 가산)
 
 fairness:
   library: fairlearn                       # AIF360 금지 (ADR-004 / Python 3.12 비호환)
