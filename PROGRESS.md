@@ -43,10 +43,11 @@
 - [x] `src/fairness/metrics.py` — DI Ratio, Equalized Odds, WARNING 로그
 - [x] `src/fairness/mitigation.py` — Fairlearn ThresholdOptimizer(equalized_odds) (ADR-004)
 - [x] `src/fairness/run_fairness.py` — 전/후 비교 + 차트 2종
-- [x] 측정 결과: gender DI 0.9502 / age_group DI 0.8358 (min-max 0.7732),
-      age_group **EO FPR차 0.1496 기준 위반**
-- [x] Mitigation 후: gender DI 1.0000, age_group DI 0.9759, EO 전부 기준 충족
-- [ ] **[결정 대기] gender 편향 미검출** — DI 0.9502 로 bias_ratio 상향 여부 판단 필요
+- [x] 측정 결과(bias_ratio=0.3): gender DI 0.9191 / age_group DI 0.8375 (min-max **0.7747**),
+      age_group **EO FPR차 0.1487 기준 위반**
+- [x] Mitigation 후: gender DI 0.9942, age_group DI 0.9433, EO 전부 충족,
+      승인율 0.7940 → 0.8196~0.8492
+- [x] `src/fairness/sensitivity.py` — bias_ratio 민감도 (SPEC §4 요건 실증)
 - [ ] `/fairness`, `/fairness/mitigation` API (F6 에서)
 
 ### F5. ANOVA 통계 검증
@@ -95,6 +96,24 @@
 - [ ] commit 10개 이상 (현재 3개), GitHub Issue/PR 3개 이상 (현재 0개, 원격 저장소 미생성)
 
 ## 2. 마지막 세션 요약
+
+**2026-09-08 (11세션) — bias_ratio 0.3 (ADR-002 v3), 목적함수 변경 (ADR-004 v2)**
+
+- 한 일: `bias_ratio` 0.1 → 0.3, ThresholdOptimizer 목적함수 `accuracy` → `balanced_accuracy`,
+  데이터 재생성 → 재학습(639.6초) → explain/fairness/민감도 재실행,
+  `src/fairness/sensitivity.py` 신규, 트레이드오프 차트, 공정성 서사 문서.
+- 확인된 수치:
+  - 상관 5개 0.3099~0.3285 (전부 범위 내, 단 **하한 여유 0.0099 로 얇음**)
+  - combined test AUC **0.9453** (목표 0.90~0.95 유지), 챔피언 xgboost|combined|class_weight
+  - 완화 전: gender DI **0.9191** (female 0.7603 / male 0.8272),
+    age_group DI 0.8375 / min-max **0.7747**, EO FPR차 **0.1487 위반**
+  - 완화 후: gender DI 0.9942 / age_group DI 0.9433, EO 전부 충족,
+    **승인율 0.7940 → 0.8196~0.8492 (목표 0.75~0.85 유지)**, AUC 0.9453 → 0.8592~0.8736
+  - 씬파일러 uplift(XGB): thin_filer +0.152 / normal +0.095 /
+    both +0.188 > missing_only +0.168 > history_only +0.101
+  - **민감도(핵심 발견)**: gender DI 는 bias_ratio 에 단조 반응(1.0030 → 0.9502 → 0.9293 → 0.9191)하나
+    age_group 은 bias_ratio=0 에서 이미 min/max 0.7840 으로 거의 불변(0.3 에서 0.7747)
+- 목적함수 변경 효과: 승인율 0.955 → 0.82~0.85, AUC 0.739 → 0.86~0.87 로 개선.
 
 **2026-09-08 (10세션) — 공정성 검증·Mitigation(F4), 설명 샘플 보강**
 
@@ -225,7 +244,21 @@
 
 - **[해소] `combined` AUC 목표 구간** — 목표를 0.90~0.95 로 정정하고 현행 설정을 최종 채택.
   (아래는 정정 근거로 남긴다.)
-- **[결정 대기 · 최우선] gender 편향이 검출되지 않음 (DI 0.9502)**
+- **[해소] gender 편향 미검출** — bias_ratio 0.3 상향(ADR-002 v3)으로 DI 0.9502 → 0.9191.
+  민감도 표에서 bias_ratio 에 단조 반응함을 확인해 SPEC §4 요건을 실증했다.
+  다만 DI 절대값은 여전히 0.8 위라 성별에서는 "기준 위반" 수준의 편향이 아니다.
+- **[핵심 발견 · 리포트 필수] age_group 격차는 주입 편향이 아니라 피처 설계에서 온다**
+  `bias_ratio=0` 에서 이미 age_group min/max DI 가 **0.7840** 으로 4/5 규칙 미달이고,
+  0.3 까지 올려도 0.7747 로 거의 변하지 않는다. 대안 피처가 소득·연령을 신호원으로 생성되므로
+  (ADR-001 `nuisance = 0.7·소득 + 0.3·연령`) 연령 정보가 대안 피처를 통해 그대로 전파된다.
+  반면 gender 격차는 bias_ratio=0 에서 DI 1.0030 으로 완전 균등 → 전적으로 주입 편향의 결과.
+  **두 속성의 편향 원인이 다르다는 이 대비가 리포트의 핵심 결과다.**
+  → `docs/report_assets/fairness_narrative.md` §2-1 에 기록 완료.
+- **[여유 부족] 상관 하한 마진 0.0099**
+  bias_ratio=0.3 에서 `utility_payment_rate` 상관이 0.3099 로 SPEC 하한 0.30 에 근접했다.
+  설정을 조금만 더 건드리면 요건을 벗어난다. 여유가 필요하면
+  `generation_correlation` 을 0.31~0.35 → 0.33~0.40 으로 올려야 하며 재학습이 필요하다(약 15분).
+- **[참고] gender 편향 미검출 (bias_ratio 0.1 시절 기록)**
   ADR-002 v2 는 female 과 20-34 의 telecom/utility 를 `bias_ratio × 0.3` 만큼 하향한다.
   현재 `bias_ratio=0.1` → 하향폭 0.03. 그 결과 **age_group 에서는 편향이 잡히지만
   (min/max DI 0.7732, EO FPR차 0.1496 위반) gender 에서는 잡히지 않는다 (DI 0.9502)**.
@@ -300,6 +333,11 @@
 - **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
 
 ## 5. 세션 히스토리
+
+### 2026-09-08 (11세션) — bias_ratio 0.3 · 목적함수 변경
+- ADR-002 v3(bias_ratio 0.3), ADR-004 v2(balanced_accuracy). 재학습 639.6초, combined AUC 0.9453.
+- 민감도 분석으로 gender 는 주입 편향, age_group 은 피처 설계 상관이 원인임을 분리 확인.
+- 완화 후 승인율 0.82~0.85 (이전 목적함수에서는 0.955) — 심사 기능 유지.
 
 ### 2026-09-08 (10세션) — 공정성 검증 · Mitigation
 - age_group 에서 proxy discrimination 확인: min/max DI 0.7732, EO FPR차 0.1496 위반.

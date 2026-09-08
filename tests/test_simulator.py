@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pathlib import Path
+
 from src.config import load_config
 from src.data import simulator as sim
 
@@ -41,12 +43,43 @@ def _fake_gmsc(n: int, seed: int = 7) -> pd.DataFrame:
     })
 
 
+# 합성 표본은 실제 GMSC 보다 상관 여유가 작다(소득·연령 분포가 다르다).
+# 배포 설정(bias_ratio=0.3)의 상관 검증은 실제 산출물로 하고(test_delivered_dataset_correlations),
+# 합성 표본에서는 여유가 있는 수준으로 확인한다.
+FIXTURE_BIAS_RATIO = 0.1
+
+
 @pytest.fixture(scope="module")
 def simulated(config) -> pd.DataFrame:
-    return sim.simulate(_fake_gmsc(30_000), config)
+    return sim.simulate(_fake_gmsc(30_000), config, bias_ratio=FIXTURE_BIAS_RATIO)
 
 
 # --- 상관계수 범위 ---------------------------------------------------------
+
+def test_delivered_dataset_correlations(config):
+    """**실제 산출물**의 상관이 SPEC §4 범위 안에 있어야 한다.
+
+    배포되는 설정(config 의 bias_ratio)으로 만든 data/processed/train.parquet 을 검사한다.
+    합성 표본이 아니라 이 파일이 리포트에 실리는 값이다.
+    """
+    path = (
+        Path(__file__).resolve().parents[1]
+        / config["preprocess"]["output_dir"] / "train.parquet"
+    )
+    if not path.exists():
+        pytest.skip(f"{path} 없음 — 먼저 python -m src.data.preprocessor 실행")
+    frame = pd.read_parquet(path)
+    lo = config["simulator"]["target_correlation"]["min"]
+    hi = config["simulator"]["target_correlation"]["max"]
+    target = frame[config["data"]["target_column"]]
+    margins = {}
+    for feature in config["simulator"]["alternative_features"]:
+        corr = abs(float(np.corrcoef(frame[feature], target)[0, 1]))
+        assert lo <= corr <= hi, f"{feature}: |corr|={corr:.4f} 가 [{lo}, {hi}] 밖"
+        margins[feature] = corr - lo
+    # 하한 여유가 0 에 붙어 있으면 설정 변경 시 쉽게 깨진다. 기록만 남긴다.
+    assert min(margins.values()) >= 0.0, margins
+
 
 def test_alternative_feature_correlations(simulated, config):
     """대안 5변수는 target 과 절댓값 0.3~0.5 의 상관을 가져야 한다 (ADR-001)."""

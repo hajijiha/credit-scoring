@@ -45,7 +45,7 @@ scoring:
 
 simulator:
   thin_filer_ratio: 0.30                   # ADR-001
-  bias_ratio: 0.10                         # ADR-002
+  bias_ratio: 0.30                         # ADR-002 v3 (상한. 그 이상은 상관 요건 위반)
   random_state: 42
   alternative_features:
     - telecom_payment_rate
@@ -108,6 +108,8 @@ fairness:
   mitigation:
     method: threshold_optimizer            # Fairlearn ThresholdOptimizer (ADR-004)
     constraints: equalized_odds
+    # ADR-004 v2: accuracy 최대화는 부도율 6.7% 에서 '거의 전부 승인'이 최적해가 된다.
+    objective: balanced_accuracy_score
 
 cv:
   n_splits: 5                              # RepeatedStratifiedKFold (ADR-005)

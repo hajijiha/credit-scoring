@@ -96,6 +96,72 @@ def mitigation_chart(results: dict[str, Any], out: Path) -> Path:
     return path
 
 
+def tradeoff_chart(results: dict[str, Any], out: Path, config: dict[str, Any]) -> Path:
+    """공정성-성능 트레이드오프.
+
+    AUC 는 완화 후 이진 결정이라 원리적으로 낮아지므로(순위 정보 소실) 함께 그리되
+    주석으로 명시한다. 실질 판단은 승인율과 정확도로 한다.
+    """
+    attributes = list(results)
+    rows = []
+    for attribute in attributes:
+        for phase in ("before", "after"):
+            res = results[attribute][phase]
+            rows.append({
+                "attribute": attribute, "phase": phase,
+                "Approval rate": res["approval_rate"],
+                "Accuracy": res["accuracy"],
+                "AUC": res["auc"],
+                "DI ratio": res["disparate_impact"]["di_ratio"],
+                "EO max diff": max(res["equalized_odds"]["equalized_odds_tpr_diff"],
+                                   res["equalized_odds"]["equalized_odds_fpr_diff"]),
+            })
+    data = pd.DataFrame(rows)
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6.5))
+
+    # 왼쪽: 공정성(EO 최대 차이) vs 심사 기능(승인율)
+    for attribute in attributes:
+        block = data[data["attribute"] == attribute]
+        axes[0].plot(block["EO max diff"], block["Approval rate"], "-o", label=attribute)
+        for _, row in block.iterrows():
+            axes[0].annotate(row["phase"], (row["EO max diff"], row["Approval rate"]),
+                             textcoords="offset points", xytext=(8, 6), fontsize=10)
+    axes[0].axvline(config["thresholds"]["eo_diff_max"], ls="--", c="crimson", lw=1.3,
+                    label="EO limit 0.10")
+    axes[0].axhspan(0.75, 0.85, color="#55A868", alpha=0.12)
+    axes[0].text(axes[0].get_xlim()[1], 0.80, " target band\n 0.75-0.85", va="center", fontsize=10)
+    axes[0].set_xlabel("Equalized Odds max difference (lower = fairer)")
+    axes[0].set_ylabel("Approval rate")
+    axes[0].set_title("Fairness vs lending function")
+    axes[0].legend(fontsize=10)
+
+    # 오른쪽: 지표별 전/후
+    metrics = ["Approval rate", "Accuracy", "AUC"]
+    long = data.melt(id_vars=["attribute", "phase"], value_vars=metrics,
+                     var_name="metric", value_name="value")
+    sns.barplot(data=long, x="metric", y="value", hue="phase", ax=axes[1],
+                palette={"before": "#4C72B0", "after": "#55A868"}, errorbar=None)
+    for container in axes[1].containers:
+        axes[1].bar_label(container, fmt="%.3f", fontsize=10, padding=2)
+    axes[1].set_xlabel("")
+    axes[1].set_ylabel("")
+    axes[1].set_ylim(0, 1.08)
+    axes[1].set_title("Performance metrics before / after")
+    axes[1].legend(fontsize=10)
+    axes[1].text(
+        0.5, -0.16,
+        "AUC drops because the mitigated output is a binary decision, not a probability.\n"
+        "Ranking information is lost by construction — this is not a model degradation.",
+        transform=axes[1].transAxes, ha="center", fontsize=10, color="#444444",
+    )
+    fig.suptitle("Fairness-performance trade-off (ThresholdOptimizer, equalized_odds)", y=1.03)
+    path = out / "fairness_tradeoff.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     cfg = load_config()
@@ -126,7 +192,11 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    paths = [approval_rate_chart(before, out, cfg), mitigation_chart(mitigation, out)]
+    paths = [
+        approval_rate_chart(before, out, cfg),
+        mitigation_chart(mitigation, out),
+        tradeoff_chart(mitigation, out, cfg),
+    ]
     copy_to_report_assets(paths, cfg)
     logger.info("결과 저장: %s", out / "fairness_results.json")
     for path in paths:

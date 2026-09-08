@@ -65,7 +65,7 @@ def fit_threshold_optimizer(
     optimizer = ThresholdOptimizer(
         estimator=Float64ProbaEstimator(model),
         constraints=cfg["fairness"]["mitigation"]["constraints"],
-        objective="accuracy_score",
+        objective=cfg["fairness"]["mitigation"].get("objective", "balanced_accuracy_score"),
         prefit=True,
         predict_method="predict_proba",
     )
