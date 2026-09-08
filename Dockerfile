@@ -7,10 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# lightgbm/xgboost 런타임 의존성
+# lightgbm/xgboost 런타임 의존성 + 한글 폰트
+# (그림 라벨은 현재 영문이지만, 한글 라벨로 바꿀 때 컨테이너에서 글리프가 깨지지 않도록 넣어둔다)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+        fonts-nanum \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -fv
 
 COPY requirements.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.txt

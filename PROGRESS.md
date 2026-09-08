@@ -43,13 +43,16 @@
 - [ ] Mitigation 전/후 비교 표 (리포트 포함)
 
 ### F5. ANOVA 통계 검증
-- [x] 관측치 확보 — fold AUC 360건, 검증1/검증2 각 그룹당 n=120 (조합당 20)
-- [ ] `src/statistics/anova.py`
-- [ ] 검증 1: 피처 그룹별(전통 Only / 대안 Only / 통합) One-way ANOVA
-- [ ] 검증 2: 알고리즘별(LR / XGB / LGBM) One-way ANOVA
-- [ ] 각 검증에 F-통계량, p-value, η²(효과 크기) 포함
-- [ ] p < 0.05 시 Tukey HSD 사후검정
-- [ ] 관측 단위는 RepeatedStratifiedKFold 5×4 = 그룹당 n=20 (ADR-005)
+- [x] 관측치 확보 — fold AUC 360건
+- [x] `src/statistics/anova.py`
+- [x] 검증 1: 피처 그룹별 One-way ANOVA — F=4514.60, p=1.69e-63, η²=0.9937
+- [x] 검증 2: 알고리즘별 One-way ANOVA — F=660.02, p=3.82e-40, η²=0.9586
+- [x] F-통계량, p-value, η² + 해석 기준(0.01/0.06/0.14) 자동 적용
+- [x] Tukey HSD 사후검정 (두 검정 모두 p<0.05 이므로 수행)
+- [x] 정규성(Shapiro-Wilk)·등분산성(Levene) 진단 + 위반 시 Welch/Kruskal-Wallis 병기 로직
+- [x] 관측 단위 그룹당 n=20 (ADR-005), 통제 방식은 ADR-011
+- [ ] 리포트에 ANOVA 해석 1페이지 이상
+- [ ] `/anova` API 엔드포인트 (F6 에서)
 
 ### F6. API 서버 (FastAPI, :8000)
 - [ ] `src/api/main.py`, 모든 엔드포인트에 Pydantic Request/Response 스키마
@@ -85,6 +88,23 @@
 - [ ] commit 10개 이상 (현재 3개), GitHub Issue/PR 3개 이상 (현재 0개, 원격 저장소 미생성)
 
 ## 2. 마지막 세션 요약
+
+**2026-09-08 (8세션) — ANOVA 검증(F5), 챔피언 재선정**
+
+- 한 일: ADR-001 부기 정정(SMOTE 재평가 + 채택 근거), 챔피언을 class_weight 조합으로 재등록,
+  Dockerfile 에 fonts-nanum 추가, ADR-011(ANOVA 통제 방식) 작성,
+  `src/statistics/anova.py` 구현, `tests/test_anova.py` 22건 추가(총 83건 통과).
+- 확인된 수치:
+  - **검증 1 (피처 그룹, xgboost/class_weight 고정, n=20)**
+    F=4514.60, p=1.69e-63, η²=0.9937 [Large] — Tukey HSD 3쌍 모두 유의
+    평균 AUC: traditional 0.8355 / alternative 0.8965 / combined 0.9479
+  - **검증 2 (알고리즘, combined/class_weight 고정, n=20)**
+    F=660.02, p=3.82e-40, η²=0.9586 [Large]
+    Tukey: LR vs XGB 유의(+0.0291), LR vs LGBM 유의(+0.0282), **XGB vs LGBM 유의하지 않음(p=0.61)**
+    평균 AUC: xgboost 0.9479 / lightgbm 0.9470 / logistic_regression 0.9188
+  - 진단: 두 검정 모두 **Shapiro-Wilk 정규성 충족 / Levene 등분산 충족** → 표준 ANOVA 사용
+  - 참고(교락 있음, 360건): 검증1 F=1158.95 η²=0.8665 / 검증2 F=12.53 η²=0.0656
+- 챔피언: `xgboost | combined | class_weight` (Registry v2, alias=champion). v1(smote)은 Archived.
 
 **2026-09-08 (7세션) — 전체 학습 완료, 리포트 자료 착수**
 
@@ -152,9 +172,7 @@
 
 ## 3. 다음 할 일 (우선순위 순)
 
-1. `src/statistics/anova.py` — 검증 1(피처그룹)·2(알고리즘) + Tukey HSD, η² (ADR-005).
-   입력은 `data/processed/fold_auc.csv` (360행) 로 이미 준비됨
-2. `src/explainer/` — SHAP 전역(Summary, Dependence 2개)/지역(Waterfall) + 거절 사유 Top 5
+1. `src/explainer/` — SHAP 전역(Summary, Dependence 2개)/지역(Waterfall) + 거절 사유 Top 5
 3. `src/fairness/` — DI Ratio, Equalized Odds, ThresholdOptimizer (ADR-004)
 5. `src/explainer/` — SHAP 전역/지역 + 거절 사유 Top 5 생성
 6. `src/fairness/` — DI Ratio, Equalized Odds, ThresholdOptimizer (ADR-004)
@@ -167,6 +185,12 @@
 
 - **[해소] `combined` AUC 목표 구간** — 목표를 0.90~0.95 로 정정하고 현행 설정을 최종 채택.
   (아래는 정정 근거로 남긴다.)
+- **[한계 · 리포트 필수 기재] η² 가 0.95 이상으로 극단적**
+  두 ANOVA 모두 η² > 0.95 다. 집단이 서로 다른 피처 구성/알고리즘으로 **고정**돼 있고
+  동일 데이터에 반복 CV 를 적용해 집단 내 fold 변동이 매우 작기 때문이다(표준편차 0.0024~0.0047).
+  실무적 우월성의 크기로 읽으면 안 되며 집단 평균 차이의 절대 크기로 판단해야 한다.
+  또한 반복 CV fold 는 완전 독립이 아니라 p-value 가 실제보다 작게 나온다(ADR-011 한계).
+  → `anova.py` 가 결과에 `effect_size_note` 로 자동 첨부한다.
 - **[한계 · 리포트 필수 기재] 시뮬레이션 데이터의 AUC 상한**
   실제 신용평가 모델 AUC 는 통상 0.85~0.88 이다. 본 프로젝트의 combined AUC 0.94 대는
   SPEC §4 의 상관 요건(0.3~0.5)을 부도율 6.68% 이진 타겟에 적용한 결과인 **구조적 상한**이며
@@ -223,6 +247,11 @@
 - **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
 
 ## 5. 세션 히스토리
+
+### 2026-09-08 (8세션) — ANOVA 검증 · 챔피언 재선정
+- ANOVA 검증1 F=4514.60 η²=0.9937 / 검증2 F=660.02 η²=0.9586, 둘 다 정규성·등분산 충족.
+- Tukey: XGBoost vs LightGBM 만 유의하지 않음(p=0.61) — 알고리즘 선택은 성능 외 기준 필요.
+- 챔피언을 SMOTE → class_weight 로 교체(설명가능성 근거, ADR-001 부기). Registry v2.
 
 ### 2026-09-08 (7세션) — 전체 학습 완료
 - 전체 학습 360 fits / 616.4초. 최고 xgboost|combined|smote test AUC 0.9491, KS 0.7576, PSI 0.0004.

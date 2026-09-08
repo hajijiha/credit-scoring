@@ -114,6 +114,30 @@ cv:
   n_repeats: 4                             # 그룹당 관측치 n = 5 x 4 = 20
   random_state: 42
 
+anova:
+  alpha: 0.05                              # 유의수준. p < alpha 이면 Tukey HSD 수행
+  eta_squared_thresholds:                  # 효과크기 해석 기준 (SPEC §5)
+    small: 0.01
+    medium: 0.06
+    large: 0.14
+  eta_squared_extreme: 0.90                # 이 값을 넘으면 해석에 경고를 붙인다
+  fold_auc_file: fold_auc.csv
+  result_file: anova_results.json
+  # ADR-011: 교락을 피하려고 나머지 요인을 고정한다. 고정 값은 champion 조합을 따른다.
+  tests:
+    test_1_feature_group:
+      name: "피처 그룹별 AUC 비교 (One-way ANOVA)"
+      factor: feature_group
+      control:
+        algorithm: xgboost
+        imbalance: class_weight
+    test_2_algorithm:
+      name: "알고리즘별 AUC 비교 (One-way ANOVA)"
+      factor: algorithm
+      control:
+        feature_group: combined
+        imbalance: class_weight
+
 features:
   # ADR-008: 보호 속성은 학습 피처에서 제외한다. ADR-009: 씬파일러 판정 근거 컬럼도 제외한다.
   traditional:                             # GMSC 원본 전통 신용 피처
@@ -148,6 +172,13 @@ models:
   imbalance_methods: [class_weight, smote]
   feature_groups: [traditional_only, alternative_only, combined]
   model_version: v1.0
+  # 최종 채택 조합. test AUC 최고(=smote)가 아니라 설명가능성 기준으로 고른다.
+  # 근거: ADR-001 "부기: 불균형 처리 기법" — SMOTE 는 합성 샘플로 학습해
+  # SHAP 기여도를 거절 사유로 제시하기에 부적합(신용정보법 제36조의2 설명 의무).
+  champion:
+    algorithm: xgboost
+    feature_group: combined
+    imbalance: class_weight
   n_jobs: 4                                # 14코어 환경에서 4가 가장 빠름(스레드 경합 회피)
   logistic_regression:
     solver: lbfgs

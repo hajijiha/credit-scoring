@@ -288,30 +288,112 @@ def _log_and_register(
         logger.info("최종 모델 저장: %s (%s / %s, test AUC %.4f)",
                     path.name, best["feature_group"], best["imbalance"], best["test_auc"])
 
-    champion = results.sort_values("test_auc", ascending=False).iloc[0]
-    champion_key = (champion["algorithm"], champion["feature_group"], champion["imbalance"])
-    champion_path = models_dir / f"champion_{champion['algorithm']}_{version}.pkl"
+    champion_key = champion_combination(config, results)
+    champion_row = results[
+        (results["algorithm"] == champion_key[0])
+        & (results["feature_group"] == champion_key[1])
+        & (results["imbalance"] == champion_key[2])
+    ].iloc[0]
+    champion_path = models_dir / f"champion_{champion_key[0]}_{version}.pkl"
     joblib.dump(models[champion_key], champion_path)
+    logger.info("챔피언 모델 저장: %s — %s test AUC %.4f",
+                champion_path.name, "|".join(champion_key), champion_row["test_auc"])
+
+    _register_champion(config, champion_key, run_ids.get("|".join(champion_key)),
+                       float(champion_row["test_auc"]))
+
+    out = pd.DataFrame(saved)
+    out.to_csv(resolve_path(config["preprocess"]["output_dir"]) / "saved_models.csv", index=False)
+    return out
+
+
+def champion_combination(
+    config: dict[str, Any], results: pd.DataFrame | None = None
+) -> tuple[str, str, str]:
+    """최종 채택 조합.
+
+    config.models.champion 이 있으면 그 조합을 쓴다(ADR-001 부기: 설명가능성 기준으로
+    `class_weight` 를 채택했으므로 test AUC 최고 조합과 다를 수 있다).
+    없으면 test AUC 최고 조합을 고른다.
+    """
+    declared = config["models"].get("champion")
+    if declared:
+        return (declared["algorithm"], declared["feature_group"], declared["imbalance"])
+    if results is None or results.empty:
+        raise ValueError("champion 설정도 결과표도 없습니다.")
+    best = results.sort_values("test_auc", ascending=False).iloc[0]
+    return (best["algorithm"], best["feature_group"], best["imbalance"])
+
+
+def _register_champion(
+    config: dict[str, Any], key: tuple[str, str, str], run_id: str | None, test_auc: float
+) -> None:
+    """챔피언 모델을 Registry 에 새 버전으로 등록하고 alias 를 옮긴다.
+
+    기존 버전은 삭제하지 않는다. 이력으로 남긴다.
+    """
+    from mlflow.tracking import MlflowClient
 
     registered_name = config["mlflow"].get("registered_model_name", "credit-scoring")
-    run_id = run_ids.get("|".join(champion_key))
+    if not run_id:
+        logger.warning("Registry 등록 생략: %s 의 run_id 를 찾을 수 없습니다.", "|".join(key))
+        return
     try:
         client = MlflowClient()
         model_version = mlflow.register_model(f"runs:/{run_id}/model", registered_name)
         client.set_registered_model_alias(registered_name, "champion", model_version.version)
         client.set_model_version_tag(registered_name, model_version.version, "stage", "Production")
         client.set_model_version_tag(
-            registered_name, model_version.version, "combination", "|".join(champion_key)
+            registered_name, model_version.version, "combination", "|".join(key)
         )
+        client.set_model_version_tag(
+            registered_name, model_version.version, "selection_basis",
+            "ADR-001 부기: SMOTE 는 합성 샘플 기반이라 거절 사유 설명에 부적합",
+        )
+        # 이전 버전은 삭제하지 않고 Archived 로 내린다(이력 유지).
+        for old in client.search_model_versions(f"name='{registered_name}'"):
+            if old.version != model_version.version and old.tags.get("stage") == "Production":
+                client.set_model_version_tag(registered_name, old.version, "stage", "Archived")
+                logger.info("이전 챔피언 v%s -> Archived (%s)",
+                            old.version, old.tags.get("combination"))
         logger.info("Registry 등록: %s v%s (alias=champion, stage=Production) — %s test AUC %.4f",
-                    registered_name, model_version.version, "|".join(champion_key),
-                    champion["test_auc"])
+                    registered_name, model_version.version, "|".join(key), test_auc)
     except Exception as exc:                       # 등록 실패가 학습 결과를 버리게 두지 않는다
         logger.warning("Registry 등록 실패(%s): %s", type(exc).__name__, exc)
 
-    out = pd.DataFrame(saved)
-    out.to_csv(resolve_path(config["preprocess"]["output_dir"]) / "saved_models.csv", index=False)
-    return out
+
+def register_champion_from_results(config: dict[str, Any] | None = None) -> tuple[str, str, str]:
+    """이미 학습된 MLflow run 에서 챔피언을 다시 골라 등록한다(재학습 없이)."""
+    from mlflow.tracking import MlflowClient
+
+    cfg = config if config is not None else load_config()
+    _setup_mlflow(cfg)
+    results = pd.read_csv(resolve_path(cfg["preprocess"]["output_dir"]) / "model_results.csv")
+    key = champion_combination(cfg, results)
+    tag = "|".join(key)
+    row = results[
+        (results["algorithm"] == key[0]) & (results["feature_group"] == key[1])
+        & (results["imbalance"] == key[2])
+    ].iloc[0]
+
+    client = MlflowClient()
+    experiment = mlflow.get_experiment_by_name(cfg["mlflow"]["experiment_name"])
+    runs = client.search_runs(
+        [experiment.experiment_id],
+        filter_string=f"attributes.run_name = '{tag.replace('|', '_')}'",
+    )
+    if not runs:
+        raise RuntimeError(f"{tag} 에 해당하는 MLflow run 이 없습니다. 먼저 학습을 실행하세요.")
+    _register_champion(cfg, key, runs[0].info.run_id, float(row["test_auc"]))
+
+    # 로컬 챔피언 파일도 교체한다. 해당 조합 모델을 run 에서 내려받아 저장.
+    version = cfg["models"]["model_version"]
+    models_dir = resolve_path(cfg["paths"]["models"])
+    model = mlflow.sklearn.load_model(f"runs:/{runs[0].info.run_id}/model")
+    path = models_dir / f"champion_{key[0]}_{version}.pkl"
+    joblib.dump(model, path)
+    logger.info("챔피언 파일 교체: %s (%s)", path.name, tag)
+    return key
 
 
 def thin_filer_uplift(config: dict[str, Any] | None = None) -> pd.DataFrame:
@@ -370,12 +452,17 @@ def main() -> None:
                         help="RepeatedStratifiedKFold 반복 수 (기본: config 의 cv.n_repeats)")
     parser.add_argument("--no-mlflow", action="store_true", help="MLflow 로깅 생략")
     parser.add_argument("--uplift-only", action="store_true", help="씬파일러 uplift 만 계산")
+    parser.add_argument("--register-only", action="store_true",
+                        help="재학습 없이 챔피언만 다시 등록")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     cfg = load_config()
     if args.uplift_only:
         print(thin_filer_uplift(cfg).to_string(index=False))
+        return
+    if args.register_only:
+        print("챔피언:", "|".join(register_champion_from_results(cfg)))
         return
     results = run(cfg, n_repeats=args.repeats, log_mlflow=not args.no_mlflow)
     print(results.to_string(index=False))

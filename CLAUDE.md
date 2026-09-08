@@ -64,6 +64,7 @@ credit-scoring/
 | [ADR-008](docs/decisions/ADR-008-protected-attributes.md) | 보호 속성(gender/age_group)을 학습 피처에서 제외 |
 | [ADR-009](docs/decisions/ADR-009-credit-history-months.md) | credit_history_months 추가, 씬파일러 판정 완성 |
 | [ADR-010](docs/decisions/ADR-010-thin-filer-types.md) | 씬파일러 유형 분화 (missing_only / history_only / both) |
+| [ADR-011](docs/decisions/ADR-011-anova-control.md) | ANOVA 통제 방식 (나머지 요인 고정, 그룹당 n=20) |
 
 ## 환경
 
