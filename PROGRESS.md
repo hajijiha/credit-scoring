@@ -78,14 +78,16 @@
 - [ ] `docker-compose up` 통합 구동 (F8 에서)
 
 ### F7. 대시보드 (Streamlit, :8501)
-- [ ] `src/dashboard/app.py`, 5개 탭
-- [ ] 탭1 **고객 심사** — 입력 폼(나이·소득·부채비율 등), 승인/거절, 신용점수, 리스크 등급
-- [ ] 탭2 **XAI 분석** — Summary Plot, 개별 Waterfall Plot, 거절 사유 Top 5 텍스트
-- [ ] 탭3 **공정성** — 집단별 승인율 막대 차트, DI Ratio 수치, Mitigation 전/후 비교 차트
-- [ ] 탭4 **모델 성능** — ROC Curve, PR Curve, 혼동행렬 히트맵
-- [ ] 탭5 **통계 검증** — ANOVA 결과 테이블(F, p, η²), Tukey HSD 결과
-- [ ] `.pkl` 직접 로드 금지, 모든 추론은 FastAPI HTTP 경유
-- [ ] 위험도별 색상 구분 (고위험=빨강 / 중위험=노랑 / 저위험=초록)
+- [x] `src/dashboard/app.py` + `api_client.py`, 5개 탭
+- [x] 탭1 **고객 심사** — 입력 폼 17항목, 승인/거절 배너, 신용점수·등급·부도확률·임계값
+- [x] 탭2 **XAI 분석** — Summary Plot(사전 생성), 개별 Waterfall(API SHAP 값으로 렌더), 거절 사유 Top 5
+- [x] 탭3 **공정성** — 집단별 승인율 차트, DI **양 정의**, 보호속성별 표, Mitigation 전/후 차트
+- [x] 탭4 **모델 성능** — 지표 6종 + ROC/PR Curve, 혼동행렬
+- [x] 탭5 **통계 검증** — ANOVA 요약표, 집단 평균표, Tukey HSD 표, η² 경고
+- [x] **`.pkl` 직접 로드 없음** — AST import 검사 + 코드 라인 grep 검사를 테스트로 강제
+- [x] 위험도별 색상 (저위험 #2E7D32 / 중위험 #F9A825 / 고위험 #C62828)
+- [x] `API_BASE_URL` 환경변수, API 미기동 시 크래시 없이 안내 표시
+- [ ] `docker-compose up` 통합 구동 (F8 에서)
 
 ### F8. 프로젝트 구조 및 제출 요건
 - [x] 역할별 `src/` 폴더 분리 (data/models/explainer/fairness/statistics/api/dashboard)
@@ -100,6 +102,25 @@
 - [ ] commit 10개 이상 (현재 3개), GitHub Issue/PR 3개 이상 (현재 0개, 원격 저장소 미생성)
 
 ## 2. 마지막 세션 요약
+
+**2026-09-08 (13세션) — Streamlit 대시보드(F7)**
+
+- 한 일: 임계값 0.30 의 대가를 ADR-003·리포트 한계에 기록, `src/dashboard/{app,api_client}.py`,
+  `tests/test_dashboard.py` 18건(총 166건 통과), config `dashboard` 섹션.
+- 검증 (Streamlit AppTest, API 기동 상태):
+  - 5개 탭 모두 예외·에러 0
+  - 탭1: 신용점수 625/1000, 등급 C, 부도확률 **37.50%** (borderline 샘플과 일치), 임계값 0.30
+  - 탭2: 거절 사유 카드 5개 렌더
+  - 탭3: 전체 승인율 0.7940, DI(age_group) 0.8375 / min-max 0.7747
+  - 탭4: AUC 0.9453 / KS 0.7502 / precision 0.2899 / recall 0.8936 / f1 0.4378 / PSI 0.0005
+  - 탭5: 표 6개, ANOVA 요약 + Tukey HSD
+  - API 미기동 시: 예외 0, 탭 5개 유지, 에러 안내 4건 + 사이드바 "API 연결 실패" + 실행 명령 안내
+- 버그 2건 수정:
+  - **`/explain` 이 연체 '기록 없음' 입력에서 500** — `float(None)` 실패.
+    이 프로젝트의 핵심 대상인 씬파일러가 그대로 걸리는 경로였다.
+    센티넬 값으로 표기하고 "기록이 없습니다" 문장으로 분기.
+  - **`app.py` import 만으로 앱이 실행됨** — `main()` 이 모듈 최상위에 있었다.
+    테스트에서 Streamlit 전역 상태가 오염돼 "Forms cannot be nested" 가 났다. `__main__` 가드 추가.
 
 **2026-09-08 (12세션) — FastAPI 7개 엔드포인트(F6), 결과 동결**
 
@@ -365,6 +386,11 @@
 - **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
 
 ## 5. 세션 히스토리
+
+### 2026-09-08 (13세션) — Streamlit 대시보드(F7)
+- 5개 탭 구현, AppTest 로 전 탭 렌더링·심사 플로우·API 미기동 동작 검증. 테스트 166건 통과.
+- 모델 파일 미로드를 AST import 검사 + 코드 grep 검사로 테스트에 고정.
+- 버그 2건: /explain 이 연체 '기록 없음'(씬파일러) 입력에서 500, app.py import 시 앱 실행.
 
 ### 2026-09-08 (12세션) — FastAPI(F6) · 결과 동결
 - 7개 엔드포인트 구현, /predict 평균 20.3ms, Swagger UI 정상. 테스트 148건 통과.

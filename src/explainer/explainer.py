@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import shutil
 from pathlib import Path
 from typing import Any
@@ -187,7 +188,8 @@ class CreditExplainer:
 
     # --- 자연어 설명 -------------------------------------------------------
     def _describe(
-        self, feature: str, current: float, reference: float, contribution: float
+        self, feature: str, current: float, reference: float, contribution: float,
+        missing: bool = False,
     ) -> tuple[str, bool]:
         """스펙 §3 형식의 자연어 설명과 부호-방향 일치 여부를 반환한다.
 
@@ -200,6 +202,14 @@ class CreditExplainer:
         above, below = _comparison_words(meta)
         current_text = _format_value(current, meta)
         reference_text = _format_value(reference, meta)
+
+        if missing:
+            # 씬파일러: 값 자체가 '정보 없음'이다. 비교 문장을 만들면 거짓이 된다.
+            text = (
+                f"{label} 기록이 없습니다. 동일 연령대 평균은 {reference_text} 입니다 "
+                f"(기여도: {contribution:+.2f})"
+            )
+            return text, True
 
         is_above = current >= reference
         comparison = above if is_above else below
@@ -250,9 +260,19 @@ class CreditExplainer:
             feature = self.feature_columns[idx]
             shap_default = float(shap_row[idx])
             contribution = -shap_default            # 신용도 기여도 (스펙 부호 규약)
-            current = float(shown[feature])
+            raw_value = shown[feature]
+            missing = raw_value is None or (
+                isinstance(raw_value, float) and math.isnan(raw_value)
+            )
+            # 값이 없으면 전처리와 같은 센티넬로 표기한다(설명 문장은 '기록 없음'으로 낸다).
+            current = (
+                float(self.config["preprocess"]["missing_sentinel"]) if missing
+                else float(raw_value)
+            )
             reference = self.reference_value(feature, age_group)
-            text, consistent = self._describe(feature, current, reference, contribution)
+            text, consistent = self._describe(
+                feature, current, reference, contribution, missing=missing
+            )
             reasons.append({
                 "rank": rank,
                 "feature": feature,

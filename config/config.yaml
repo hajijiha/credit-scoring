@@ -129,6 +129,37 @@ api:
     model_results: model_results.csv
     uplift: thin_filer_uplift.csv
 
+dashboard:
+  # 기본 입력값은 F3 의 borderline_rejected 샘플(p_default 0.375, 씬파일러 both 유형).
+  # 극단 사례(p=0.97)보다 경계 사례가 XAI 가치를 잘 보여준다.
+  default_input:
+    RevolvingUtilizationOfUnsecuredLines: 0.0094
+    age: 66
+    DebtRatio: 0.1998
+    MonthlyIncome: 13300
+    NumberOfOpenCreditLinesAndLoans: 20
+    NumberRealEstateLoansOrLines: 2
+    NumberOfDependents: 1
+    NumberOfTime30-59DaysPastDueNotWorse: null   # 기록 없음(씬파일러)
+    NumberOfTime60-89DaysPastDueNotWorse: null
+    NumberOfTimes90DaysLate: null
+    telecom_payment_rate: 0.6836
+    utility_payment_rate: 0.6731
+    spending_consistency: 0.2527
+    regular_payment_count: 7
+    app_login_frequency: 6
+    gender: male
+    credit_history_months: 11
+  risk_colors:                             # SPEC §7: 위험도별 색상 구분
+    low: "#2E7D32"                         # 저위험 초록
+    medium: "#F9A825"                      # 중위험 노랑
+    high: "#C62828"                        # 고위험 빨강
+  risk_bands:                              # 부도 확률 기준
+    low_max: 0.15
+    medium_max: 0.30                       # 이상이면 고위험(= 승인 임계값)
+  request_timeout_seconds: 10
+  static_assets_dir: docs/report_assets     # 사전 생성 이미지(모델 파일 아님)
+
 explainer:
   feature_names_file: config/feature_names.yaml
   output_dir: data/processed/explain     # 산출물 원본
