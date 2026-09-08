@@ -116,6 +116,19 @@ cv:
   n_repeats: 4                             # 그룹당 관측치 n = 5 x 4 = 20
   random_state: 42
 
+api:
+  title: 대안신용평가 API
+  version: 1.0.0
+  description: >-
+    씬파일러 대상 대안신용평가 시스템. 본 시스템은 교육 목적으로 개발되었으며,
+    실제 금융 의사결정에 사용할 수 없습니다.
+  # 사전 계산 결과를 읽어 서빙한다. 요청 시 재계산하지 않는다.
+  precomputed:
+    fairness: fairness/fairness_results.json
+    anova: anova_results.json
+    model_results: model_results.csv
+    uplift: thin_filer_uplift.csv
+
 explainer:
   feature_names_file: config/feature_names.yaml
   output_dir: data/processed/explain     # 산출물 원본

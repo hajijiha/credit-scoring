@@ -53,8 +53,8 @@
 ### F5. ANOVA 통계 검증
 - [x] 관측치 확보 — fold AUC 360건
 - [x] `src/statistics/anova.py`
-- [x] 검증 1: 피처 그룹별 One-way ANOVA — F=4514.60, p=1.69e-63, η²=0.9937
-- [x] 검증 2: 알고리즘별 One-way ANOVA — F=660.02, p=3.82e-40, η²=0.9586
+- [x] 검증 1: 피처 그룹별 One-way ANOVA — F=4245.65, p=9.64e-63, η²=0.9933
+- [x] 검증 2: 알고리즘별 One-way ANOVA — F=804.38, p=1.68e-42, η²=0.9658
 - [x] F-통계량, p-value, η² + 해석 기준(0.01/0.06/0.14) 자동 적용
 - [x] Tukey HSD 사후검정 (두 검정 모두 p<0.05 이므로 수행)
 - [x] 정규성(Shapiro-Wilk)·등분산성(Levene) 진단 + 위반 시 Welch/Kruskal-Wallis 병기 로직
@@ -63,15 +63,19 @@
 - [ ] `/anova` API 엔드포인트 (F6 에서)
 
 ### F6. API 서버 (FastAPI, :8000)
-- [ ] `src/api/main.py`, 모든 엔드포인트에 Pydantic Request/Response 스키마
-- [ ] `GET  /health` → `{"status", "model_version", "timestamp"}`
-- [ ] `POST /predict` → `{"credit_score": int, "approval_status": str, "default_probability": float, "risk_grade": str}`
-- [ ] `POST /explain` → `{"rejection_reasons": [...], "shap_values": {...}}`
-- [ ] `GET  /fairness` → `{"di_ratio", "equalized_odds_tpr_diff", "equalized_odds_fpr_diff"}`
-- [ ] `GET  /fairness/mitigation` → `{"before": {...}, "after": {...}}`
-- [ ] `GET  /metrics` → `{"auc", "ks", "precision", "recall", "f1"}`
-- [ ] `GET  /anova` → `{"test_1": {...}, "test_2": {...}}`
-- [ ] `localhost:8000/docs` Swagger UI, `/predict` 응답 2초 이내
+- [x] `src/api/main.py` + `src/api/schemas.py`, 전 엔드포인트 Pydantic 스키마
+- [x] `GET  /health` — 상태·모델버전·타임스탬프·챔피언·자원 로드 현황
+- [x] `POST /predict` — credit_score / approval_status / default_probability / risk_grade
+- [x] `POST /explain` — rejection_reasons(Top5) + shap_values + base_value
+- [x] `GET  /fairness` — DI **양 정의 병기**, EO TPR/FPR, 보호속성별 상세
+- [x] `GET  /fairness/mitigation` — before / after / delta / 집단별 조정 임계값
+- [x] `GET  /metrics` — auc, ks, precision, recall, f1, psi
+- [x] `GET  /anova` — test_1, test_2 (F, p, η², Tukey, 진단)
+- [x] 모델·전처리기·SHAP 설명기 기동 시 1회 로드
+- [x] 사전 계산 결과 서빙(요청 시 재계산 없음)
+- [x] `/predict` 평균 **20.3ms** (목표 2초), `/explain` 평균 36.9ms
+- [x] Swagger UI `/docs` 정상, OpenAPI 에 7개 엔드포인트 등록
+- [ ] `docker-compose up` 통합 구동 (F8 에서)
 
 ### F7. 대시보드 (Streamlit, :8501)
 - [ ] `src/dashboard/app.py`, 5개 탭
@@ -96,6 +100,23 @@
 - [ ] commit 10개 이상 (현재 3개), GitHub Issue/PR 3개 이상 (현재 0개, 원격 저장소 미생성)
 
 ## 2. 마지막 세션 요약
+
+**2026-09-08 (12세션) — FastAPI 7개 엔드포인트(F6), 결과 동결**
+
+- 한 일: F1~F5 결과 동결(재생성 없음) 및 상관 여유를 ADR-001 한계 절에 기록,
+  리포트 결론 문장 확정, `src/api/{main,schemas}.py` 구현,
+  `src/data/run_preprocess.py` CLI 분리, `tests/test_api.py` 28건(총 148건 통과).
+- 확인된 수치:
+  - `/predict` 평균 **20.3ms** / 중앙값 20.3ms / 최대 26.2ms (50회) — SPEC 2초 대비 여유 충분
+  - `/explain` 평균 36.9ms / 최대 49.3ms (20회)
+  - `/health` status=healthy, 6개 자원 전부 로드
+  - `/metrics`: AUC 0.9453, KS 0.7502, precision 0.2899, recall 0.8936, f1 0.4378, PSI 0.00054
+- 버그 2건 수정:
+  - **전처리기 역직렬화 실패** — `python -m src.data.preprocessor` 로 저장하면 클래스의
+    `__module__` 이 `"__main__"` 이 되어 다른 프로세스에서 못 읽는다. CLI 를 분리해 해결.
+  - **`credit_history_months` 입력이 무시됨** — `to_raw_frame` 에서 pop 후 기본값으로 덮어썼다.
+  - **`/anova` 가 stale 결과 서빙** — 재학습 후 ANOVA 재실행을 빠뜨렸다. 재실행 후 수치 갱신
+    (검증1 F=4245.65 η²=0.9933 / 검증2 F=804.38 η²=0.9658).
 
 **2026-09-08 (11세션) — bias_ratio 0.3 (ADR-002 v3), 목적함수 변경 (ADR-004 v2)**
 
@@ -240,6 +261,16 @@
 9. Dockerfile / docker-compose 실체화 후 통합 구동 검증
 10. 실험 리포트(PDF) 작성, README 팀 역할 추가, GitHub 원격 생성 + Issue/PR
 
+## 3-1. 리포트 결론 (확정)
+
+> 전통 신용정보가 결손된 씬파일러에게 대안 데이터는 통계적으로 유의한 AUC 개선을 제공한다
+> (씬파일러 +0.152, 전체 +0.110; ANOVA F=4245.65, p<0.001, η²=0.9933).
+> 그러나 보호 속성을 학습에서 제외해도 편향은 대안 피처를 경유해 전파되며,
+> 그 경로는 **측정 편향(성별)** 과 **피처 내재 상관(연령대)** 두 종류로 구분된다.
+> 후자는 편향 원인 제거가 예측력 손실을 수반하므로 **사후 임계값 조정이 현실적 대응**이다.
+
+전문은 `docs/report_assets/fairness_narrative.md` §5.
+
 ## 4. 미해결 이슈
 
 - **[해소] `combined` AUC 목표 구간** — 목표를 0.90~0.95 로 정정하고 현행 설정을 최종 채택.
@@ -254,10 +285,11 @@
   반면 gender 격차는 bias_ratio=0 에서 DI 1.0030 으로 완전 균등 → 전적으로 주입 편향의 결과.
   **두 속성의 편향 원인이 다르다는 이 대비가 리포트의 핵심 결과다.**
   → `docs/report_assets/fairness_narrative.md` §2-1 에 기록 완료.
-- **[여유 부족] 상관 하한 마진 0.0099**
-  bias_ratio=0.3 에서 `utility_payment_rate` 상관이 0.3099 로 SPEC 하한 0.30 에 근접했다.
-  설정을 조금만 더 건드리면 요건을 벗어난다. 여유가 필요하면
-  `generation_correlation` 을 0.31~0.35 → 0.33~0.40 으로 올려야 하며 재학습이 필요하다(약 15분).
+- **[동결 · 기록만] 상관 하한 마진 0.0099**
+  `utility_payment_rate` 상관 0.3099 로 SPEC 하한 0.30 에 근접. **요건은 충족한다.**
+  F1~F5 결과는 현재 데이터로 **동결**했다(시뮬레이터·모델·공정성 재생성 없음).
+  지금까지의 모든 수치가 이 데이터 위에서 정합되어 있고, 재생성 시 리포트 자료 전체를
+  다시 만들어야 하기 때문이다. → ADR-001 "한계" 절에 기록 완료.
 - **[참고] gender 편향 미검출 (bias_ratio 0.1 시절 기록)**
   ADR-002 v2 는 female 과 20-34 의 telecom/utility 를 `bias_ratio × 0.3` 만큼 하향한다.
   현재 `bias_ratio=0.1` → 하향폭 0.03. 그 결과 **age_group 에서는 편향이 잡히지만
@@ -333,6 +365,11 @@
 - **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
 
 ## 5. 세션 히스토리
+
+### 2026-09-08 (12세션) — FastAPI(F6) · 결과 동결
+- 7개 엔드포인트 구현, /predict 평균 20.3ms, Swagger UI 정상. 테스트 148건 통과.
+- F1~F5 결과 동결. 리포트 결론 문장 확정(fairness_narrative.md §5).
+- 버그 3건 수정: 전처리기 피클 네임스페이스, credit_history_months 무시, stale ANOVA 서빙.
 
 ### 2026-09-08 (11세션) — bias_ratio 0.3 · 목적함수 변경
 - ADR-002 v3(bias_ratio 0.3), ADR-004 v2(balanced_accuracy). 재학습 639.6초, combined AUC 0.9453.

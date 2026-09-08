@@ -265,11 +265,6 @@ def prepare(
     return processed, pre
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    from src.data.loader import load_gmsc
-    from src.data.simulator import simulate
-
-    cfg = load_config()
-    data = simulate(load_gmsc(cfg), cfg)
-    prepare(data, cfg, save=True)
+# CLI 는 src/data/run_preprocess.py 에 있다.
+# 이 모듈을 `python -m src.data.preprocessor` 로 실행하면 Preprocessor 클래스의 __module__ 이
+# "__main__" 이 되어, 저장된 joblib 을 다른 프로세스에서 역직렬화할 수 없다.
