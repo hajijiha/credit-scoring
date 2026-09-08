@@ -30,6 +30,12 @@ def load_config(config_path: str | os.PathLike[str] | None = None) -> dict[str, 
         return yaml.safe_load(f)
 
 
+def load_yaml(relative: str | os.PathLike[str]) -> dict[str, Any]:
+    """프로젝트 루트 기준 상대경로의 YAML 을 읽는다(보조 설정 파일용)."""
+    with open(resolve_path(relative), encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
 def resolve_path(relative: str | os.PathLike[str]) -> Path:
     """상대경로를 프로젝트 루트 기준 절대경로로 변환한다. 절대경로는 그대로 둔다."""
     path = Path(relative)

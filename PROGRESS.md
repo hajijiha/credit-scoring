@@ -29,11 +29,15 @@
       / PSI < 0.1 (18/18, 최대 0.0014) / 씬파일러 uplift ≥ +0.03 (최소 +0.102)
 
 ### F3. 설명가능성(XAI)
-- [ ] `src/explainer/` — SHAP TreeExplainer
-- [ ] 전역: Summary Plot (상위 15개 변수), Dependence Plot 2개 이상
-- [ ] 지역: 개별 고객 Waterfall Plot
-- [ ] 거절 사유 Top 5 — 필드 `feature`, `current_value`, `shap_contribution`, `explanation`
-- [ ] 자연어 설명 생성 (예: "통신비 정상납부율이 78%로, 동일 연령대 평균(92%) 대비 낮습니다 (기여도: -0.15)")
+- [x] `src/explainer/` — SHAP TreeExplainer (`explainer.py`, `run_explain.py`)
+- [x] 전역: Summary Plot 상위 15개, Dependence Plot 2개 (대안 1 + 전통 1)
+- [x] 지역: 개별 고객 Waterfall Plot (씬파일러 / 일반 각 1건)
+- [x] 거절 사유 Top 5 — `feature`, `feature_name_kr`, `current_value`, `reference_value`,
+      `shap_contribution`, `explanation`, `direction_consistent`
+- [x] 자연어 설명 — 단위별 템플릿 분기(percent/ratio/count/amount/years/flag), 한글 조사 처리
+- [x] `reference_value` = 동일 연령대 평균 (센티넬 −1 은 평균에서 제외)
+- [x] 한글 피처명 매핑 `config/feature_names.yaml` 로 분리
+- [ ] `/explain` API 엔드포인트 (F6 에서)
 
 ### F4. 공정성 검증 및 Bias Mitigation
 - [ ] `src/fairness/` — 보호 속성 성별(male/female), 연령대(20-34/35-54/55+)
@@ -89,6 +93,22 @@
 
 ## 2. 마지막 세션 요약
 
+**2026-09-08 (9세션) — SHAP 설명가능성(F3), ADR-012**
+
+- 한 일: ADR-012(챔피언 알고리즘 선정 근거 변경) 작성 및 관련 서술 정정,
+  `config/feature_names.yaml`, `src/explainer/` 구현, `tests/test_explainer.py` 21건
+  (총 104건 통과), 이미지 5종 생성 및 `docs/report_assets/` 복사.
+- 확인된 수치 (챔피언 xgboost|combined|class_weight, test 2,000행 표본):
+  - 전역 중요도 1위 **telecom_payment_rate 1.3460** (2위 RevolvingUtilization 0.7769 의 1.7배)
+  - 상위 5개 중 대안 피처 3개, 상위 15개 구성은 traditional 10 / alternative 5
+  - 피처당 평균 |SHAP|: **alternative 0.6563 vs traditional 0.2011** (3.3배)
+  - 씬파일러 거절 사례(history_only, p=0.9997): 1~3위가 전부 대안 피처
+  - 일반 거절 사례(p=0.9997): 1위 대안, 2위 연체 횟수로 혼재
+- 버그 2건 수정:
+  - **거절 사유가 워터폴과 다른 피처를 가리킴** — 역스케일한 값을 모델에 넣어 SHAP 을 계산했다.
+    `rejection_reasons(row, display_row=...)` 로 모델 입력과 표시값을 분리. 회귀 테스트 추가.
+  - **참조 평균에 센티넬(−1) 포함** — "동일 연령대 평균 −0회" 가 출력됐다. 결측 플래그 기준으로 제외.
+
 **2026-09-08 (8세션) — ANOVA 검증(F5), 챔피언 재선정**
 
 - 한 일: ADR-001 부기 정정(SMOTE 재평가 + 채택 근거), 챔피언을 class_weight 조합으로 재등록,
@@ -101,6 +121,7 @@
   - **검증 2 (알고리즘, combined/class_weight 고정, n=20)**
     F=660.02, p=3.82e-40, η²=0.9586 [Large]
     Tukey: LR vs XGB 유의(+0.0291), LR vs LGBM 유의(+0.0282), **XGB vs LGBM 유의하지 않음(p=0.61)**
+    → 챔피언 알고리즘 선정 근거를 "성능 우위"에서 "SHAP 지원 성숙도"로 변경 (ADR-012)
     평균 AUC: xgboost 0.9479 / lightgbm 0.9470 / logistic_regression 0.9188
   - 진단: 두 검정 모두 **Shapiro-Wilk 정규성 충족 / Levene 등분산 충족** → 표준 ANOVA 사용
   - 참고(교락 있음, 360건): 검증1 F=1158.95 η²=0.8665 / 검증2 F=12.53 η²=0.0656
@@ -248,9 +269,14 @@
 
 ## 5. 세션 히스토리
 
+### 2026-09-08 (9세션) — SHAP 설명가능성 · ADR-012
+- ADR-012: XGB vs LGBM 유의차 없음(p=0.6137)이라 챔피언 근거를 SHAP 지원 성숙도로 변경.
+- `src/explainer/` 구현: 전역 중요도 1위 telecom_payment_rate(1.346), 대안 피처가 traditional 대비 3.3배.
+- 거절 사유 생성 버그 2건 수정(SHAP 입력 스케일 혼동, 센티넬 포함 평균). 테스트 104건 통과.
+
 ### 2026-09-08 (8세션) — ANOVA 검증 · 챔피언 재선정
 - ANOVA 검증1 F=4514.60 η²=0.9937 / 검증2 F=660.02 η²=0.9586, 둘 다 정규성·등분산 충족.
-- Tukey: XGBoost vs LightGBM 만 유의하지 않음(p=0.61) — 알고리즘 선택은 성능 외 기준 필요.
+- Tukey: XGBoost vs LightGBM 만 유의하지 않음(p=0.61) — ADR-012 로 선정 근거 변경.
 - 챔피언을 SMOTE → class_weight 로 교체(설명가능성 근거, ADR-001 부기). Registry v2.
 
 ### 2026-09-08 (7세션) — 전체 학습 완료

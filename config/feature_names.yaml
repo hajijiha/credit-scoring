@@ -1,0 +1,95 @@
+# 피처의 한글 이름 · 표시 단위 · 방향성 (F3 거절 사유 자연어 생성용)
+#
+# unit:
+#   percent  0~1 값을 % 로 표시            ratio    소수 그대로 표시
+#   count    횟수/건수 (counter 로 단위 지정)  amount   금액 (GMSC 원 데이터의 단위를 그대로 씀.
+#                                                      출처가 미국 데이터라 '원'을 붙이지 않는다)
+#   years    연 단위                        months   개월 단위
+# higher_is_better: 값이 클수록 신용에 유리한가
+
+features:
+  # --- 대안 데이터 ---
+  telecom_payment_rate:
+    kr: 통신비 정상납부율
+    unit: percent
+    higher_is_better: true
+  utility_payment_rate:
+    kr: 공과금 납부율
+    unit: percent
+    higher_is_better: true
+  spending_consistency:
+    kr: 소비 일관성 점수
+    unit: percent
+    higher_is_better: true
+  regular_payment_count:
+    kr: 정기결제 건수
+    unit: count
+    counter: 건
+    higher_is_better: true
+  app_login_frequency:
+    kr: 앱 접속 빈도
+    unit: count
+    counter: 회
+    higher_is_better: true
+
+  # --- 전통 신용 피처 ---
+  RevolvingUtilizationOfUnsecuredLines:
+    kr: 무담보 신용한도 소진율
+    unit: ratio
+    higher_is_better: false
+  age:
+    kr: 연령
+    unit: years
+    higher_is_better: true
+  NumberOfTime30-59DaysPastDueNotWorse:
+    kr: 30-59일 연체 횟수
+    unit: count
+    counter: 회
+    higher_is_better: false
+  DebtRatio:
+    kr: 부채비율
+    unit: ratio
+    higher_is_better: false
+  MonthlyIncome:
+    kr: 월 소득
+    unit: amount
+    higher_is_better: true
+  NumberOfOpenCreditLinesAndLoans:
+    kr: 보유 신용계좌 수
+    unit: count
+    counter: 개
+    higher_is_better: true
+  NumberOfTimes90DaysLate:
+    kr: 최근 90일 연체 횟수
+    unit: count
+    counter: 회
+    higher_is_better: false
+  NumberRealEstateLoansOrLines:
+    kr: 부동산 담보대출 건수
+    unit: count
+    counter: 건
+    higher_is_better: true
+  NumberOfTime60-89DaysPastDueNotWorse:
+    kr: 60-89일 연체 횟수
+    unit: count
+    counter: 회
+    higher_is_better: false
+  NumberOfDependents:
+    kr: 부양가족 수
+    unit: count
+    counter: 명
+    higher_is_better: false
+
+  # --- 결측 플래그 ---
+  NumberOfTime30-59DaysPastDueNotWorse_is_missing:
+    kr: 30-59일 연체 기록 없음
+    unit: flag
+    higher_is_better: false
+  NumberOfTime60-89DaysPastDueNotWorse_is_missing:
+    kr: 60-89일 연체 기록 없음
+    unit: flag
+    higher_is_better: false
+  NumberOfTimes90DaysLate_is_missing:
+    kr: 90일 연체 기록 없음
+    unit: flag
+    higher_is_better: false

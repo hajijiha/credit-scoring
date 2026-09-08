@@ -27,7 +27,7 @@ credit-scoring/
 │   ├── config.py          # config.yaml 로딩 · 경로 해석 (설정 접근의 유일한 진입점)
 │   ├── data/              # loader.py, simulator.py, preprocessor.py
 │   ├── models/            # 학습 파이프라인
-│   ├── explainer/         # SHAP
+│   ├── explainer/         # SHAP (explainer.py, run_explain.py)
 │   ├── fairness/          # Fairlearn 지표 · 완화
 │   ├── statistics/        # 반복 CV, ANOVA, 사후검정
 │   ├── api/               # FastAPI
@@ -65,6 +65,7 @@ credit-scoring/
 | [ADR-009](docs/decisions/ADR-009-credit-history-months.md) | credit_history_months 추가, 씬파일러 판정 완성 |
 | [ADR-010](docs/decisions/ADR-010-thin-filer-types.md) | 씬파일러 유형 분화 (missing_only / history_only / both) |
 | [ADR-011](docs/decisions/ADR-011-anova-control.md) | ANOVA 통제 방식 (나머지 요인 고정, 그룹당 n=20) |
+| [ADR-012](docs/decisions/ADR-012-champion-algorithm.md) | 챔피언 알고리즘 선정 근거 = SHAP 지원 성숙도 |
 
 ## 환경
 

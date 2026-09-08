@@ -155,6 +155,11 @@ v1 에서는 씬파일러 판정의 두 조건이 완전히 같은 집합이어�
 | alternative_only | 0.8975 | logistic_regression / smote |
 | **combined** | **0.9491** | xgboost / smote |
 
+> 최종 채택 조합은 test AUC 최고인 `xgboost / smote` 가 아니라 `xgboost / class_weight` (0.9485) 다.
+> SMOTE 와의 차이(0.0006)가 CV 표준편차(±0.0024) 미만이라 유의하지 않고, SMOTE 는 합성 샘플로
+> 학습해 거절 사유 설명에 부적합하기 때문이다(ADR-001 부기).
+> 알고리즘 역시 XGBoost 가 LightGBM 보다 유의하게 낫다는 근거는 없다(Tukey p_adj=0.6137, ADR-012).
+
 정정된 목표 구간 0.90~0.95 안에 들어온다.
 
 씬파일러 유형별 uplift (XGBoost, traditional_only → combined):

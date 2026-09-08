@@ -132,6 +132,29 @@ class Preprocessor:
     def fit_transform(self, x_train: pd.DataFrame) -> pd.DataFrame:
         return self.fit(x_train).transform(x_train)
 
+    def inverse_transform_numeric(self, x: pd.DataFrame) -> pd.DataFrame:
+        """스케일링된 수치형 컬럼을 원래 단위로 되돌린다.
+
+        거절 사유 자연어 설명에는 스케일링된 z 값이 아니라 실제 값이 필요하다
+        ("통신비 정상납부율이 78%로 ...").
+        """
+        if not self.fitted:
+            raise RuntimeError("fit 을 먼저 호출해야 합니다.")
+        out = x.copy()
+        cols = [c for c in self.numeric_columns if c in out.columns]
+        if not cols:
+            return out
+        # 전체 numeric_columns 순서를 맞춰 역변환한 뒤 필요한 컬럼만 취한다.
+        frame = pd.DataFrame(
+            {c: (out[c] if c in out.columns else 0.0) for c in self.numeric_columns},
+            index=out.index,
+        )
+        restored = pd.DataFrame(
+            self.scaler.inverse_transform(frame), columns=self.numeric_columns, index=out.index
+        )
+        out[cols] = restored[cols]
+        return out
+
     # --- 저장 / 로드 -------------------------------------------------------
     def save(self, path: str | Path | None = None) -> Path:
         pre = self._pre
