@@ -191,5 +191,9 @@ preprocess:
   scaler_file: preprocessor.joblib
 
 mlflow:
-  tracking_uri: file:./mlruns
+  # MLflow 3.x 는 파일 저장소를 유지보수 모드로 막았다. SQLite 백엔드를 쓴다.
+  # (Model Registry 도 파일 저장소에서는 지원되지 않는다.)
+  tracking_uri: sqlite:///mlflow.db
+  artifact_location: ./mlruns
   experiment_name: credit-scoring
+  registered_model_name: credit-scoring-champion

@@ -20,6 +20,7 @@ from typing import Any
 
 import joblib
 import mlflow
+import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from imblearn.over_sampling import SMOTE
@@ -106,6 +107,29 @@ def cross_validate_auc(
     return scores
 
 
+def _setup_mlflow(config: dict[str, Any]) -> None:
+    """트래킹 URI·실험을 준비한다. 아티팩트 위치는 config 의 상대경로를 쓴다."""
+    mcfg = config["mlflow"]
+    mlflow.set_tracking_uri(mcfg["tracking_uri"])
+    name = mcfg["experiment_name"]
+    if mlflow.get_experiment_by_name(name) is None:
+        artifact_location = resolve_path(mcfg["artifact_location"]).as_uri()
+        mlflow.create_experiment(name, artifact_location=artifact_location)
+    mlflow.set_experiment(name)
+
+
+def _log_sklearn_model(model: Any, name: str = "model") -> None:
+    """MLflow 에 모델을 기록한다.
+
+    MLflow 3.x 기본 직렬화(skops)는 imblearn 파이프라인 타입을 거부하므로 cloudpickle 로 고정한다.
+    """
+    kwargs = {"serialization_format": mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE}
+    try:
+        mlflow.sklearn.log_model(model, name=name, **kwargs)
+    except TypeError:                              # 구버전 시그니처 호환
+        mlflow.sklearn.log_model(model, artifact_path=name, **kwargs)
+
+
 def load_splits(config: dict[str, Any]) -> dict[str, pd.DataFrame]:
     """전처리된 parquet 을 읽는다. 없으면 안내 후 예외."""
     out_dir = resolve_path(config["preprocess"]["output_dir"])
@@ -136,14 +160,15 @@ def run(config: dict[str, Any] | None = None, n_repeats: int | None = None,
     pos_weight = float((y["train"] == 0).sum() / max((y["train"] == 1).sum(), 1))
 
     if log_mlflow:
-        mlflow.set_tracking_uri(cfg["mlflow"]["tracking_uri"])
-        mlflow.set_experiment(cfg["mlflow"]["experiment_name"])
+        _setup_mlflow(cfg)
 
     models_dir = resolve_path(cfg["paths"]["models"])
     models_dir.mkdir(parents=True, exist_ok=True)
 
     rows: list[dict[str, Any]] = []
     fold_records: list[dict[str, Any]] = []
+    fitted: dict[tuple[str, str, str], Any] = {}
+    run_ids: dict[str, str] = {}
     total_start = time.perf_counter()
 
     for group in FEATURE_GROUPS:
@@ -184,6 +209,7 @@ def run(config: dict[str, Any] | None = None, n_repeats: int | None = None,
                     "fit_seconds": elapsed,
                 }
                 rows.append(row)
+                fitted[(algorithm, group, imbalance)] = model
                 fold_records += [
                     {"algorithm": algorithm, "feature_group": group, "imbalance": imbalance,
                      "fold": i, "auc": v}
@@ -196,7 +222,8 @@ def run(config: dict[str, Any] | None = None, n_repeats: int | None = None,
                 )
 
                 if log_mlflow:
-                    with mlflow.start_run(run_name=tag.replace("|", "_")):
+                    with mlflow.start_run(run_name=tag.replace("|", "_")) as active:
+                        run_ids[tag] = active.info.run_id
                         mlflow.log_params({
                             "algorithm": algorithm, "feature_group": group,
                             "imbalance": imbalance, "n_features": len(cols),
@@ -214,9 +241,12 @@ def run(config: dict[str, Any] | None = None, n_repeats: int | None = None,
                         })
                         for i, v in enumerate(fold_aucs):
                             mlflow.log_metric("fold_auc", v, step=i)
-                        artifact = models_dir / f"{algorithm}_{group}_{imbalance}_{version}.joblib"
-                        joblib.dump(model, artifact)
-                        mlflow.log_artifact(str(artifact))
+                        mlflow.set_tags({
+                            "feature_group": group, "algorithm": algorithm,
+                            "imbalance_method": imbalance,
+                        })
+                        # imblearn 파이프라인은 skops 직렬화가 거부하므로 cloudpickle 을 쓴다.
+                        _log_sklearn_model(model)
 
     results = pd.DataFrame(rows).sort_values("test_auc", ascending=False).reset_index(drop=True)
     folds = pd.DataFrame(fold_records)
@@ -226,9 +256,62 @@ def run(config: dict[str, Any] | None = None, n_repeats: int | None = None,
     results.to_csv(out_dir / "model_results.csv", index=False)
     folds.to_csv(out_dir / "fold_auc.csv", index=False)          # ANOVA 입력
     logger.info("결과 저장: %s, %s", out_dir / "model_results.csv", out_dir / "fold_auc.csv")
+    if log_mlflow:
+        _log_and_register(results, fitted, cfg, run_ids)
+
     logger.info("총 소요 %.1f초 (%d개 조합, 조합당 %d fold)",
                 time.perf_counter() - total_start, len(rows), n_splits * repeats)
     return results
+
+
+def _log_and_register(
+    results: pd.DataFrame, models: dict[str, Any], config: dict[str, Any], run_ids: dict[str, str]
+) -> pd.DataFrame:
+    """알고리즘별 최고 조합을 models/ 에 저장하고 최우수 모델을 Registry 에 등록한다."""
+    from mlflow.tracking import MlflowClient
+
+    version = config["models"]["model_version"]
+    models_dir = resolve_path(config["paths"]["models"])
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    saved = []
+    for algorithm, group in results.groupby("algorithm", sort=False):
+        best = group.sort_values("test_auc", ascending=False).iloc[0]
+        key = (best["algorithm"], best["feature_group"], best["imbalance"])
+        path = models_dir / f"{algorithm}_{version}.pkl"
+        joblib.dump(models[key], path)
+        saved.append({
+            "algorithm": algorithm, "feature_group": best["feature_group"],
+            "imbalance": best["imbalance"], "test_auc": best["test_auc"],
+            "file": path.name,
+        })
+        logger.info("최종 모델 저장: %s (%s / %s, test AUC %.4f)",
+                    path.name, best["feature_group"], best["imbalance"], best["test_auc"])
+
+    champion = results.sort_values("test_auc", ascending=False).iloc[0]
+    champion_key = (champion["algorithm"], champion["feature_group"], champion["imbalance"])
+    champion_path = models_dir / f"champion_{champion['algorithm']}_{version}.pkl"
+    joblib.dump(models[champion_key], champion_path)
+
+    registered_name = config["mlflow"].get("registered_model_name", "credit-scoring")
+    run_id = run_ids.get("|".join(champion_key))
+    try:
+        client = MlflowClient()
+        model_version = mlflow.register_model(f"runs:/{run_id}/model", registered_name)
+        client.set_registered_model_alias(registered_name, "champion", model_version.version)
+        client.set_model_version_tag(registered_name, model_version.version, "stage", "Production")
+        client.set_model_version_tag(
+            registered_name, model_version.version, "combination", "|".join(champion_key)
+        )
+        logger.info("Registry 등록: %s v%s (alias=champion, stage=Production) — %s test AUC %.4f",
+                    registered_name, model_version.version, "|".join(champion_key),
+                    champion["test_auc"])
+    except Exception as exc:                       # 등록 실패가 학습 결과를 버리게 두지 않는다
+        logger.warning("Registry 등록 실패(%s): %s", type(exc).__name__, exc)
+
+    out = pd.DataFrame(saved)
+    out.to_csv(resolve_path(config["preprocess"]["output_dir"]) / "saved_models.csv", index=False)
+    return out
 
 
 def thin_filer_uplift(config: dict[str, Any] | None = None) -> pd.DataFrame:
@@ -249,19 +332,31 @@ def thin_filer_uplift(config: dict[str, Any] | None = None) -> pd.DataFrame:
             model.fit(train[cols], train[target])
             scores[group] = model.predict_proba(test[cols])[:, 1]
 
-        for segment, mask in (
+        segments: list[tuple[str, pd.Series]] = [
+            ("all", pd.Series(True, index=test.index)),
             ("thin_filer", test["is_thin_filer"] == 1),
             ("normal", test["is_thin_filer"] == 0),
-            ("all", pd.Series(True, index=test.index)),
-        ):
+        ]
+        # ADR-010: 씬파일러 유형별로 대안 데이터 효과가 다른지 본다.
+        type_col = cfg["simulator"]["thin_filer_type_column"]
+        for kind in cfg["simulator"]["thin_filer_type_mix"]:
+            segments.append((f"thin:{kind}", test[type_col] == kind))
+
+        for segment, mask in segments:
+            if mask.sum() == 0:
+                continue
             y_seg = test.loc[mask, target]
+            if y_seg.nunique() < 2:
+                continue
             base = auc_score(y_seg, scores["traditional_only"][mask.to_numpy()])
             comb = auc_score(y_seg, scores["combined"][mask.to_numpy()])
             rows.append({
                 "algorithm": algorithm, "segment": segment, "n": int(mask.sum()),
+                "positive_rate": float(y_seg.mean()),
                 "auc_traditional": base, "auc_combined": comb, "uplift": comb - base,
-                "meets_target": bool(segment != "thin_filer" or comb - base >= 0.03),
+                "meets_target": bool(not segment.startswith("thin") or comb - base >= 0.03),
             })
+
     out = pd.DataFrame(rows)
     path = resolve_path(cfg["preprocess"]["output_dir"]) / "thin_filer_uplift.csv"
     out.to_csv(path, index=False)

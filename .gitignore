@@ -8,6 +8,7 @@ models/*.pkl
 models/*.joblib
 !models/.gitkeep
 mlruns/
+mlflow.db
 
 # 파이썬 / 가상환경
 .venv/
