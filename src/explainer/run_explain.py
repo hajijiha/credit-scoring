@@ -23,6 +23,17 @@ from src.models.train import champion_combination
 logger = logging.getLogger(__name__)
 
 
+def _risk_grade(config: dict[str, Any], p_default: float) -> str:
+    """ADR-003: score = 1000 x (1 - p_default) 에 등급 컷 적용."""
+    score = config["scoring"]["score_max"] * (1 - p_default)
+    for grade, cutoff in sorted(
+        config["scoring"]["grade_cutoffs"].items(), key=lambda kv: -kv[1]
+    ):
+        if score >= cutoff:
+            return grade
+    return "E"
+
+
 def load_champion(config: dict[str, Any]) -> tuple[Any, tuple[str, str, str]]:
     key = champion_combination(config)
     path = resolve_path(config["paths"]["models"]) / (
@@ -92,47 +103,67 @@ def main() -> None:
     share = importance.head(ecfg["summary_max_display"])["feature_type"].value_counts().to_dict()
     logger.info("상위 %d개 구성: %s", ecfg["summary_max_display"], share)
 
-    # --- 지역 해석: 씬파일러 / 일반 각각 거절된 고객 1명 ---
+    # --- 지역 해석 ---
     proba = ctx["model"].predict_proba(test[cols])[:, 1]
     test = test.assign(_proba=proba)
     test_raw = test_raw.assign(_proba=proba)
 
     samples: dict[str, Any] = {}
-    for label, mask in (
-        ("thin_filer", test["is_thin_filer"] == 1),
-        ("normal", test["is_thin_filer"] == 0),
-    ):
-        rejected = test[mask & (test["_proba"] >= threshold)]
-        if rejected.empty:
-            logger.warning("%s 집단에 거절 사례가 없습니다.", label)
-            continue
-        idx = rejected["_proba"].idxmax()
-        row_scaled = test.loc[idx]
-        row_raw = test_raw.loc[idx]
-        age_group = row_raw["age_group"]
+    for spec in ecfg["samples"]:
+        mask = pd.Series(True, index=test.index)
+        if spec["segment"] == "thin_filer":
+            mask &= test["is_thin_filer"] == 1
+        elif spec["segment"] == "normal":
+            mask &= test["is_thin_filer"] == 0
+        mask &= test["_proba"].between(spec["proba_min"], spec["proba_max"], inclusive="left")
 
-        paths.append(explainer.waterfall_plot(
-            row_scaled, out / f"shap_waterfall_{label}.png",
-            title=f"{label} (p_default={row_scaled['_proba']:.3f}, age_group={age_group})",
-        ))
-        # SHAP 은 스케일된 입력으로, 설명 문장은 원 단위 값으로 만든다.
-        reasons = explainer.rejection_reasons(row_scaled, age_group, display_row=row_raw)
-        samples[label] = {
+        pool = test[mask]
+        if pool.empty:
+            logger.warning("%s: 조건에 맞는 사례가 없습니다 (p %.2f~%.2f, %s)",
+                           spec["name"], spec["proba_min"], spec["proba_max"], spec["segment"])
+            continue
+
+        rejected = spec["decision"] == "rejected"
+        # 구간 중앙에 가장 가까운 건을 고른다(경계 사례의 대표성).
+        centre = (spec["proba_min"] + min(spec["proba_max"], 1.0)) / 2
+        idx = (pool["_proba"] - centre).abs().idxmin()
+        row_scaled, row_raw = test.loc[idx], test_raw.loc[idx]
+        age_group = row_raw["age_group"]
+        p_default = float(row_scaled["_proba"])
+
+        explainer.waterfall_plot(
+            row_scaled, out / f"shap_waterfall_{spec['name']}.png",
+            title=f"{spec['name']} (p_default={p_default:.4f}, age_group={age_group})",
+        )
+        paths.append(out / f"shap_waterfall_{spec['name']}.png")
+
+        factors = explainer.contributing_factors(
+            row_scaled, age_group, adverse=rejected, display_row=row_raw
+        )
+        entry: dict[str, Any] = {
+            "sample_name": spec["name"],
             "index": int(idx),
-            "segment": label,
+            "segment": "thin_filer" if row_scaled["is_thin_filer"] == 1 else "normal",
             "thin_filer_type": str(row_raw.get("thin_filer_type", "none")),
             "age_group": str(age_group),
             "gender": str(row_raw["gender"]),
             "actual_default": int(row_scaled[target]),
-            "default_probability": round(float(row_scaled["_proba"]), 4),
-            "credit_score": int(round(cfg["scoring"]["score_max"] * (1 - row_scaled["_proba"]))),
-            "approval_status": "REJECTED",
-            "rejection_reasons": reasons,
-            "total_rejection_factors": len(reasons),
+            "default_probability": round(p_default, 4),
+            "credit_score": int(round(cfg["scoring"]["score_max"] * (1 - p_default))),
+            "risk_grade": _risk_grade(cfg, p_default),
+            "approval_status": "REJECTED" if rejected else "APPROVED",
         }
-        logger.info("%s 거절 사례 idx=%s p_default=%.4f", label, idx, row_scaled["_proba"])
-        for reason in reasons:
-            logger.info("  %d. %s", reason["rank"], reason["explanation"])
+        if rejected:
+            entry["rejection_reasons"] = factors
+            entry["total_rejection_factors"] = len(factors)
+        else:
+            entry["approval_factors"] = factors
+        samples[spec["name"]] = entry
+
+        logger.info("%s: idx=%s p_default=%.4f (%s, %s)",
+                    spec["name"], idx, p_default, entry["segment"], entry["approval_status"])
+        for factor in factors:
+            logger.info("  %d. %s", factor["rank"], factor["explanation"])
 
     (out / "rejection_reasons_sample.json").write_text(
         json.dumps(samples, ensure_ascii=False, indent=2), encoding="utf-8"

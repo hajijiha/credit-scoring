@@ -40,11 +40,14 @@
 - [ ] `/explain` API 엔드포인트 (F6 에서)
 
 ### F4. 공정성 검증 및 Bias Mitigation
-- [ ] `src/fairness/` — 보호 속성 성별(male/female), 연령대(20-34/35-54/55+)
-- [ ] DI Ratio 계산 함수, **0.8 미만 또는 1.25 초과 시 WARNING 로그**
-- [ ] Equalized Odds 계산 함수 (TPR 차이, FPR 차이, 기준 ≤ 0.10)
-- [ ] Bias Mitigation 1개 이상 — Fairlearn ThresholdOptimizer (ADR-004)
-- [ ] Mitigation 전/후 비교 표 (리포트 포함)
+- [x] `src/fairness/metrics.py` — DI Ratio, Equalized Odds, WARNING 로그
+- [x] `src/fairness/mitigation.py` — Fairlearn ThresholdOptimizer(equalized_odds) (ADR-004)
+- [x] `src/fairness/run_fairness.py` — 전/후 비교 + 차트 2종
+- [x] 측정 결과: gender DI 0.9502 / age_group DI 0.8358 (min-max 0.7732),
+      age_group **EO FPR차 0.1496 기준 위반**
+- [x] Mitigation 후: gender DI 1.0000, age_group DI 0.9759, EO 전부 기준 충족
+- [ ] **[결정 대기] gender 편향 미검출** — DI 0.9502 로 bias_ratio 상향 여부 판단 필요
+- [ ] `/fairness`, `/fairness/mitigation` API (F6 에서)
 
 ### F5. ANOVA 통계 검증
 - [x] 관측치 확보 — fold AUC 360건
@@ -92,6 +95,22 @@
 - [ ] commit 10개 이상 (현재 3개), GitHub Issue/PR 3개 이상 (현재 0개, 원격 저장소 미생성)
 
 ## 2. 마지막 세션 요약
+
+**2026-09-08 (10세션) — 공정성 검증·Mitigation(F4), 설명 샘플 보강**
+
+- 한 일: 경계 사례 설명 샘플 추가(config `explainer.samples`), `src/fairness/` 3개 모듈,
+  `tests/test_fairness.py` 15건(총 119건 통과), 공정성 차트 2종.
+- 확인된 수치 (챔피언 xgboost|combined|class_weight, test 22,500행, 임계 0.30):
+  - 전체 승인율 0.8011
+  - **gender**: 승인율 female 0.7805 / male 0.8215 → DI **0.9502** (충족),
+    EO TPR차 0.0258 / FPR차 0.0425 (충족) — **편향 미검출**
+  - **age_group**: 승인율 20-34 0.6838 / 35-54 0.7508 / 55+ 0.8844 →
+    DI(보호 vs 나머지) **0.8358** 충족이나 **min/max 0.7732 는 0.8 미만**,
+    EO TPR차 0.0938 / **FPR차 0.1496 기준 위반**
+  - Mitigation 후: gender DI 1.0000 / age_group DI 0.9759, EO 전부 충족
+  - 트레이드오프: 승인율 0.8011 → 0.955 내외, AUC 0.9485 → 0.74 (이진 결정이라 순위 정보 소실)
+- 버그·환경 이슈 2건: fairlearn 이 sklearn BaseEstimator 를 요구(래퍼에 `__sklearn_tags__` 없음),
+  XGBoost float32 확률이 pandas 3.x 에서 대입 오류 → `Float64ProbaEstimator` 어댑터로 해결.
 
 **2026-09-08 (9세션) — SHAP 설명가능성(F3), ADR-012**
 
@@ -206,6 +225,19 @@
 
 - **[해소] `combined` AUC 목표 구간** — 목표를 0.90~0.95 로 정정하고 현행 설정을 최종 채택.
   (아래는 정정 근거로 남긴다.)
+- **[결정 대기 · 최우선] gender 편향이 검출되지 않음 (DI 0.9502)**
+  ADR-002 v2 는 female 과 20-34 의 telecom/utility 를 `bias_ratio × 0.3` 만큼 하향한다.
+  현재 `bias_ratio=0.1` → 하향폭 0.03. 그 결과 **age_group 에서는 편향이 잡히지만
+  (min/max DI 0.7732, EO FPR차 0.1496 위반) gender 에서는 잡히지 않는다 (DI 0.9502)**.
+  연령대는 대안 피처의 연령 신호(ADR-001)와 주입 편향이 같은 방향으로 누적되는 반면,
+  성별은 무작위 합성이라 주입 편향만으로 격차를 만들어야 하기 때문으로 보인다.
+  선택지: (a) `bias_ratio` 0.1 → 0.2~0.3 상향 후 데이터 재생성 + 재학습(약 15분),
+  (b) 현행 유지하고 "성별은 프록시 경로가 약해 편향이 전파되지 않았다"로 해석,
+  (c) `bias_shift_per_ratio` 를 0.3 → 0.4 이상으로 상향(단 상관 요건 재확인 필요).
+  ※ `bias_ratio` 상한은 0.3 (ADR-002 v2, 그 이상은 SPEC §4 상관 요건 위반).
+- **[해석 주의] DI Ratio 정의에 따라 판정이 갈린다**
+  SPEC §1 용어 정의는 "보호 집단 승인율 / 비보호 집단 승인율"이라 age_group 은 0.8358 로 충족이지만,
+  규제 실무에서 흔한 min/max 정의로는 0.7732 로 **미달**이다. 두 값을 모두 산출해 리포트에 병기한다.
 - **[한계 · 리포트 필수 기재] η² 가 0.95 이상으로 극단적**
   두 ANOVA 모두 η² > 0.95 다. 집단이 서로 다른 피처 구성/알고리즘으로 **고정**돼 있고
   동일 데이터에 반복 CV 를 적용해 집단 내 fold 변동이 매우 작기 때문이다(표준편차 0.0024~0.0047).
@@ -268,6 +300,11 @@
 - **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
 
 ## 5. 세션 히스토리
+
+### 2026-09-08 (10세션) — 공정성 검증 · Mitigation
+- age_group 에서 proxy discrimination 확인: min/max DI 0.7732, EO FPR차 0.1496 위반.
+- gender 는 DI 0.9502 로 편향 미검출 → bias_ratio 상향 여부 사용자 결정 대기.
+- ThresholdOptimizer 적용 후 DI·EO 전부 기준 충족하나 승인율 0.80→0.96, AUC 0.95→0.74.
 
 ### 2026-09-08 (9세션) — SHAP 설명가능성 · ADR-012
 - ADR-012: XGB vs LGBM 유의차 없음(p=0.6137)이라 챔피언 근거를 SHAP 지원 성숙도로 변경.

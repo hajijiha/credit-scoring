@@ -80,13 +80,23 @@ def _instrumental_particle(word: str) -> str:
     return "로"
 
 
+def _strip_negative_zero(text: str) -> str:
+    """'-0회' 처럼 반올림으로 생긴 음의 0 표기를 정리한다.
+
+    역스케일 왕복에서 0 이 -0.0004 로 돌아오는 경우가 있다.
+    """
+    if text.startswith("-") and not any(c in "123456789" for c in text):
+        return text[1:]
+    return text
+
+
 def _format_value(value: float, meta: dict[str, Any]) -> str:
     """단위에 맞춰 값을 문자열로 만든다."""
     unit = meta.get("unit", "ratio")
     if unit == "count":
-        return f"{value:.0f}{meta.get('counter', '회')}"
+        return _strip_negative_zero(f"{value:.0f}") + meta.get("counter", "회")
     formatter, _ = _FORMATTERS.get(unit, _FORMATTERS["ratio"])
-    return formatter(value)
+    return _strip_negative_zero(formatter(value))
 
 
 def _comparison_words(meta: dict[str, Any]) -> tuple[str, str]:
@@ -216,28 +226,25 @@ class CreditExplainer:
             text += " — 다른 항목과의 조합에 따른 영향입니다"
         return text, consistent
 
-    def rejection_reasons(
+    def contributing_factors(
         self,
         row: pd.Series,
         age_group: str,
+        adverse: bool = True,
         top_n: int | None = None,
         display_row: pd.Series | None = None,
     ) -> list[dict[str, Any]]:
-        """부도 확률을 가장 크게 올린 요인 Top N 을 거절 사유로 반환한다.
+        """기여도 상위 요인 Top N.
 
-        row         : **모델 입력 그대로**(전처리·스케일링된) 값. SHAP 계산에 쓴다.
-        display_row : 자연어 설명에 쓸 원 단위 값. 생략하면 row 를 그대로 쓴다.
-
-        두 값을 나누는 이유: SHAP 은 학습 때와 같은 스케일의 입력에서 계산해야 하고,
-        설명 문장에는 "78%" 같은 원래 단위가 필요하기 때문이다.
+        adverse=True  : 부도 확률을 올린 요인 (거절 사유)
+        adverse=False : 부도 확률을 낮춘 요인 (승인 사유)
         """
         n = top_n if top_n is not None else self.ecfg["top_rejection_reasons"]
         shown = display_row if display_row is not None else row
         frame = row[self.feature_columns].to_frame().T.astype("float64")
         shap_row = self.explain(frame)[0][0]
 
-        # 부도 확률을 올린(=신용도에 불리한) 순으로 정렬
-        order = np.argsort(-shap_row)
+        order = np.argsort(-shap_row if adverse else shap_row)
         reasons: list[dict[str, Any]] = []
         for rank, idx in enumerate(order[:n], start=1):
             feature = self.feature_columns[idx]
@@ -258,6 +265,37 @@ class CreditExplainer:
                 "direction_consistent": consistent,
             })
         return reasons
+
+    def rejection_reasons(
+        self,
+        row: pd.Series,
+        age_group: str,
+        top_n: int | None = None,
+        display_row: pd.Series | None = None,
+    ) -> list[dict[str, Any]]:
+        """부도 확률을 가장 크게 올린 요인 Top N 을 거절 사유로 반환한다.
+
+        row         : **모델 입력 그대로**(전처리·스케일링된) 값. SHAP 계산에 쓴다.
+        display_row : 자연어 설명에 쓸 원 단위 값. 생략하면 row 를 그대로 쓴다.
+
+        두 값을 나누는 이유: SHAP 은 학습 때와 같은 스케일의 입력에서 계산해야 하고,
+        설명 문장에는 "78%" 같은 원래 단위가 필요하기 때문이다.
+        """
+        return self.contributing_factors(
+            row, age_group, adverse=True, top_n=top_n, display_row=display_row
+        )
+
+    def approval_factors(
+        self,
+        row: pd.Series,
+        age_group: str,
+        top_n: int | None = None,
+        display_row: pd.Series | None = None,
+    ) -> list[dict[str, Any]]:
+        """부도 확률을 가장 크게 낮춘 요인 Top N (승인 사유)."""
+        return self.contributing_factors(
+            row, age_group, adverse=False, top_n=top_n, display_row=display_row
+        )
 
     # --- 그림 -------------------------------------------------------------
     def summary_plot(self, x: pd.DataFrame, path: Path) -> Path:
