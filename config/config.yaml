@@ -289,6 +289,8 @@ mlflow:
   # MLflow 3.x 는 파일 저장소를 유지보수 모드로 막았다. SQLite 백엔드를 쓴다.
   # (Model Registry 도 파일 저장소에서는 지원되지 않는다.)
   tracking_uri: sqlite:///mlflow.db
+  # 상대경로로 둔다. 절대경로로 기록하면 호스트에서 만든 run 의 아티팩트 링크가
+  # 컨테이너 안에서 깨진다(경로가 다르다).
   artifact_location: ./mlruns
   experiment_name: credit-scoring
   registered_model_name: credit-scoring-champion

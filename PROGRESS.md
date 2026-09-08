@@ -93,15 +93,29 @@
 - [x] 역할별 `src/` 폴더 분리 (data/models/explainer/fairness/statistics/api/dashboard)
 - [x] 설정값 config 분리, 하드코딩 절대경로 없음
 - [x] `requirements.txt` 버전 명시 (+ `requirements.lock`)
-- [x] `tests/` pytest **39건** (요건 10건 이상), 현재 100% 통과 (요건 80% 이상)
-- [x] `.env.example`
-- [ ] `README.md` — 팀 구성원 역할 항목 추가 필요
-- [ ] `docker-compose up` 으로 api(8000) + dashboard(8501) + mlflow(5000) 동시 구동
+- [x] `tests/` pytest **166건** (요건 10건 이상), 100% 통과 (요건 80% 이상)
+- [x] `.env.example` 완성
+- [x] `README.md` — 개요·팀 역할(1인)·실행방법·구조·환경변수·데이터 획득·ADR·성능표·한계
+- [x] `models/` 에 학습된 모델 파일 (`champion_xgboost_v1.0.pkl` 외 3개)
+- [x] `Dockerfile` / `docker-compose.yml` 완성 (api/dashboard/mlflow + bootstrap 프로파일)
+- [x] `scripts/bootstrap.sh` — 클린 클론에서 산출물 생성
+- [x] **`docker compose up` 통합 구동 검증 완료** — 3개 서비스 전부 healthy
+      (api 8000 / dashboard 8501 / mlflow 5000), 대시보드→API 컨테이너 네트워크 경유 확인
+- [x] commit 10개 이상 (현재 13개)
+- [ ] GitHub 원격 저장소 + Issue/PR 3개 이상 → `docs/github_setup.md` 에 계획 정리
 - [ ] `docs/experiment_report.pdf` 20페이지 이상
-- [ ] `models/` 에 학습된 모델 파일
-- [ ] commit 10개 이상 (현재 3개), GitHub Issue/PR 3개 이상 (현재 0개, 원격 저장소 미생성)
 
 ## 2. 마지막 세션 요약
+
+**2026-09-08 (14세션) — Docker 구성·README 최종화(F8)**
+
+- 한 일: `Dockerfile`/`docker-compose.yml` 완성(api/dashboard/mlflow + bootstrap 프로파일),
+  `scripts/bootstrap.sh`, `.dockerignore`, `.env.example` 완성, README 258줄 최종화,
+  `docs/github_setup.md`(Issue 8건·PR 3건 계획), MLflow `artifact_location` 상대경로화.
+- 산출물 배치 결정: **볼륨 마운트**. `models/`·`data/processed/` 가 리포지토리에 없어
+  이미지에 구울 대상이 존재하지 않고, 빌드 중 학습은 15분 이상 걸린다.
+  근거를 README "왜 볼륨 마운트인가" 절에 표로 정리.
+- **미해결**: 이미지 빌드가 이 환경의 BuildKit DNS 실패로 완료되지 않는다.
 
 **2026-09-08 (13세션) — Streamlit 대시보드(F7)**
 
@@ -294,6 +308,13 @@
 
 ## 4. 미해결 이슈
 
+- **[해소] Docker 이미지 빌드 실패** — 두 가지 원인이었고 둘 다 고쳤다.
+  1. **BuildKit 빌더의 DNS 실패**: `apt-get update` 가 `Could not resolve 'deb.debian.org'` 로
+     exit 100. 호스트(1.2 MB/s)와 `docker run` 컨테이너에서는 정상이었고 빌더에서만 실패했다.
+     → `docker-compose.yml` 에 `build.network: host` 추가로 해소.
+  2. **`fc-cache` 명령 부재**: `fonts-nanum` 만 설치하면 fontconfig 바이너리가 없어 exit 127.
+     → `fontconfig` 패키지 추가.
+
 - **[해소] `combined` AUC 목표 구간** — 목표를 0.90~0.95 로 정정하고 현행 설정을 최종 채택.
   (아래는 정정 근거로 남긴다.)
 - **[해소] gender 편향 미검출** — bias_ratio 0.3 상향(ADR-002 v3)으로 DI 0.9502 → 0.9191.
@@ -386,6 +407,11 @@
 - **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
 
 ## 5. 세션 히스토리
+
+### 2026-09-08 (14세션) — Docker 구성 · README 최종화(F8)
+- Dockerfile/compose 완성(4개 서비스), bootstrap 스크립트, README 258줄, GitHub 준비 문서.
+- 산출물은 볼륨 마운트 방식 채택(이미지에 구울 대상이 리포지토리에 없다).
+- 이미지 빌드가 BuildKit DNS 실패로 막힘 — 환경 문제이며 구성 자체는 완성.
 
 ### 2026-09-08 (13세션) — Streamlit 대시보드(F7)
 - 5개 탭 구현, AppTest 로 전 탭 렌더링·심사 플로우·API 미기동 동작 검증. 테스트 166건 통과.

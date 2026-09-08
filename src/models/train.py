@@ -113,8 +113,9 @@ def _setup_mlflow(config: dict[str, Any]) -> None:
     mlflow.set_tracking_uri(mcfg["tracking_uri"])
     name = mcfg["experiment_name"]
     if mlflow.get_experiment_by_name(name) is None:
-        artifact_location = resolve_path(mcfg["artifact_location"]).as_uri()
-        mlflow.create_experiment(name, artifact_location=artifact_location)
+        # 상대경로 그대로 넘긴다. 절대경로로 기록하면 호스트에서 만든 run 을
+        # 컨테이너에서 열었을 때 아티팩트 경로가 맞지 않는다.
+        mlflow.create_experiment(name, artifact_location=mcfg["artifact_location"])
     mlflow.set_experiment(name)
 
 
