@@ -166,22 +166,31 @@ SPEC §4 가 요구하는 "대안 변수와 타겟의 상관계수 0.3 ~ 0.5" �
 
 ## 부기: 불균형 처리 기법 — `class_weight` 채택
 
-### 순위 성능 비교 (전체 학습, 18조합 × 20 fold)
+### 순위 성능 비교 (최종 데이터, `bias_ratio = 0.3`, 18조합 × 20 fold)
 
-| 피처 그룹 | class_weight | SMOTE | 차이 |
-|---|---:|---:|---:|
-| traditional_only (XGBoost) | **0.8355** | 0.8229 | +0.0126 |
-| alternative_only (XGBoost) | 0.8946 | **0.8951** | −0.0005 |
-| combined (XGBoost) | 0.9485 | **0.9491** | −0.0006 |
-| combined (LightGBM) | 0.9470 | **0.9483** | −0.0013 |
+test AUC 기준. 9개 (피처그룹 × 알고리즘) 쌍 전체를 비교했다.
 
-`traditional_only` 에서는 `class_weight` 가 명확히 우세하다(+0.0126).
-`combined` 에서는 SMOTE 가 근소 우세하나 **차이가 0.0006 ~ 0.0013 으로 CV 표준편차(±0.0024) 미만**이라
-유의한 차이로 볼 수 없다.
+| 피처 그룹 | 알고리즘 | class_weight | SMOTE | 차이 |
+|---|---|---:|---:|---:|
+| traditional_only | XGBoost | **0.8355** | 0.8229 | **+0.0126** |
+| traditional_only | LightGBM | **0.8338** | 0.8275 | +0.0063 |
+| traditional_only | LogReg | **0.7724** | 0.7664 | +0.0059 |
+| alternative_only | XGBoost | **0.8893** | 0.8886 | +0.0007 |
+| alternative_only | LightGBM | **0.8902** | 0.8900 | +0.0002 |
+| alternative_only | LogReg | 0.8879 | 0.8879 | −0.0001 |
+| combined | XGBoost | **0.9453** | 0.9446 | +0.0006 |
+| combined | LightGBM | 0.9448 | **0.9460** | −0.0013 |
+| combined | LogReg | **0.9099** | 0.9050 | +0.0049 |
 
-F1 은 SMOTE 가 크게 앞선다(combined/XGBoost 기준 0.6274 vs 0.4519). 다만 이는
-**승인 임계값 0.30 에서의 점수 분포 차이**이며 순위 성능(AUC·KS)의 차이가 아니다.
-SMOTE 로 학습한 모델은 예측 확률이 더 높은 쪽으로 이동해 고정 임계값에서 유리하게 보인다.
+`class_weight` 가 9쌍 중 **7쌍에서 우세하거나 동등**하다. `traditional_only` 에서는
+차이가 뚜렷하다(+0.0059 ~ +0.0126). SMOTE 가 이긴 경우는 LightGBM `combined` 한 쌍뿐이며
+그 차이 0.0013 은 **CV 표준편차(±0.0025) 미만**이라 유의하다고 볼 수 없다.
+
+F1 은 SMOTE 가 크게 앞선다(combined 기준 XGBoost 0.6159 vs 0.4378, LightGBM 0.6219 vs 0.4609).
+다만 이는 **승인 임계값 0.30 에서의 점수 분포 차이**이며 순위 성능(AUC·KS)의 차이가 아니다.
+SMOTE 로 학습한 모델은 예측 확률이 위로 이동해 고정 임계값에서 정밀도가 올라간다
+(XGBoost combined: precision 0.2899 → 0.5506, recall 0.8936 → 0.6988).
+즉 SMOTE 는 재현율을 정밀도로 바꾼 것이고, 판별력 자체가 나아진 것이 아니다.
 
 ### 최종 채택: `class_weight='balanced'`
 
