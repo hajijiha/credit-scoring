@@ -203,9 +203,10 @@ PR 곡선은 다른 이야기를 한다. 기저 부도율이 0.067 이라 정밀
 
 각주: test AUC 기준, `bias_ratio=0.3` 최종 데이터.
 
-`class_weight` 가 **9쌍 중 7쌍에서 우세하거나 동등**하다. `traditional_only` 에서는
+`class_weight` 가 **9쌍 중 7쌍에서 우세**하고, 1쌍은 사실상 동등하다
+(LogReg `alternative_only`, 반올림 전 차이 −0.00005). `traditional_only` 에서는
 차이가 뚜렷하고(+0.0059 ~ +0.0126), 대안 피처가 들어가면 차이가 거의 사라진다.
-SMOTE 가 이긴 경우는 LightGBM `combined` 한 쌍뿐이며, 그 차이 0.0013 은
+SMOTE 가 실질적으로 앞선 경우는 LightGBM `combined` 한 쌍뿐이며, 그 차이 0.0013 은
 **CV 표준편차(±0.0025) 미만**이다.
 
 F1 은 이야기가 다르다.
