@@ -14,7 +14,7 @@
 - [x] `bias_ratio` 파라미터 — 조정 시 성별/연령대 편향 변경 (ADR-002 v2)
 - [x] 씬파일러 판정 함수 — 연체 관련 컬럼 2개 이상 결측 (`is_thin_filer`)
 - [x] `src/data/preprocessor.py` — 결측 처리, StandardScaler, One-Hot, 70:15:15 stratify 분할
-- [ ] 씬파일러 집단 AUC uplift 측정 (F2 모델 학습 후)
+- [x] 씬파일러 집단 AUC uplift 측정 — thin_filer +0.1518 / normal +0.0946 (`data/processed/thin_filer_uplift.csv`)
 - [ ] EDA 노트북 (`notebooks/`, 권장 항목)
 
 ### F2. 신용평가 모델
@@ -37,7 +37,7 @@
 - [x] 자연어 설명 — 단위별 템플릿 분기(percent/ratio/count/amount/years/flag), 한글 조사 처리
 - [x] `reference_value` = 동일 연령대 평균 (센티넬 −1 은 평균에서 제외)
 - [x] 한글 피처명 매핑 `config/feature_names.yaml` 로 분리
-- [ ] `/explain` API 엔드포인트 (F6 에서)
+- [x] `/explain` API 엔드포인트 — F6 에서 구현
 
 ### F4. 공정성 검증 및 Bias Mitigation
 - [x] `src/fairness/metrics.py` — DI Ratio, Equalized Odds, WARNING 로그
@@ -48,7 +48,7 @@
 - [x] Mitigation 후: gender DI 0.9942, age_group DI 0.9433, EO 전부 충족,
       승인율 0.7940 → 0.8196~0.8492
 - [x] `src/fairness/sensitivity.py` — bias_ratio 민감도 (SPEC §4 요건 실증)
-- [ ] `/fairness`, `/fairness/mitigation` API (F6 에서)
+- [x] `/fairness`, `/fairness/mitigation` API — F6 에서 구현
 
 ### F5. ANOVA 통계 검증
 - [x] 관측치 확보 — fold AUC 360건
@@ -59,8 +59,8 @@
 - [x] Tukey HSD 사후검정 (두 검정 모두 p<0.05 이므로 수행)
 - [x] 정규성(Shapiro-Wilk)·등분산성(Levene) 진단 + 위반 시 Welch/Kruskal-Wallis 병기 로직
 - [x] 관측 단위 그룹당 n=20 (ADR-005), 통제 방식은 ADR-011
-- [ ] 리포트에 ANOVA 해석 1페이지 이상
-- [ ] `/anova` API 엔드포인트 (F6 에서)
+- [x] 리포트에 ANOVA 해석 1페이지 이상 — `docs/report/09_anova.md` (8장, 246줄)
+- [x] `/anova` API 엔드포인트 — F6 에서 구현
 
 ### F6. API 서버 (FastAPI, :8000)
 - [x] `src/api/main.py` + `src/api/schemas.py`, 전 엔드포인트 Pydantic 스키마
@@ -75,7 +75,7 @@
 - [x] 사전 계산 결과 서빙(요청 시 재계산 없음)
 - [x] `/predict` 평균 **20.3ms** (목표 2초), `/explain` 평균 36.9ms
 - [x] Swagger UI `/docs` 정상, OpenAPI 에 7개 엔드포인트 등록
-- [ ] `docker-compose up` 통합 구동 (F8 에서)
+- [x] `docker compose up` 통합 구동 — F8 에서 검증 완료
 
 ### F7. 대시보드 (Streamlit, :8501)
 - [x] `src/dashboard/app.py` + `api_client.py`, 5개 탭
@@ -87,7 +87,7 @@
 - [x] **`.pkl` 직접 로드 없음** — AST import 검사 + 코드 라인 grep 검사를 테스트로 강제
 - [x] 위험도별 색상 (저위험 #2E7D32 / 중위험 #F9A825 / 고위험 #C62828)
 - [x] `API_BASE_URL` 환경변수, API 미기동 시 크래시 없이 안내 표시
-- [ ] `docker-compose up` 통합 구동 (F8 에서)
+- [x] `docker compose up` 통합 구동 — F8 에서 검증 완료
 
 ### F8. 프로젝트 구조 및 제출 요건
 - [x] 역할별 `src/` 폴더 분리 (data/models/explainer/fairness/statistics/api/dashboard)
@@ -101,7 +101,7 @@
 - [x] `scripts/bootstrap.sh` — 클린 클론에서 산출물 생성
 - [x] **`docker compose up` 통합 구동 검증 완료** — 3개 서비스 전부 healthy
       (api 8000 / dashboard 8501 / mlflow 5000), 대시보드→API 컨테이너 네트워크 경유 확인
-- [x] commit 10개 이상 (현재 13개)
+- [x] commit 10개 이상 (2026-09-11 정리 시점 `git rev-list --count HEAD` = 18개)
 - [ ] GitHub 원격 저장소 + Issue/PR 3개 이상 → `docs/github_setup.md` 에 계획 정리
 - [ ] `docs/experiment_report.pdf` 20페이지 이상 — **작성 중** (아래 진행표)
 
@@ -342,14 +342,11 @@
 
 ## 3. 다음 할 일 (우선순위 순)
 
-1. `src/explainer/` — SHAP 전역(Summary, Dependence 2개)/지역(Waterfall) + 거절 사유 Top 5
-3. `src/fairness/` — DI Ratio, Equalized Odds, ThresholdOptimizer (ADR-004)
-5. `src/explainer/` — SHAP 전역/지역 + 거절 사유 Top 5 생성
-6. `src/fairness/` — DI Ratio, Equalized Odds, ThresholdOptimizer (ADR-004)
-7. `src/api/main.py` — 7개 엔드포인트 + Pydantic 스키마
-8. `src/dashboard/app.py` — 5개 탭
-9. Dockerfile / docker-compose 실체화 후 통합 구동 검증
-10. 실험 리포트(PDF) 작성, README 팀 역할 추가, GitHub 원격 생성 + Issue/PR
+1. **리포트 잔여 장 작성** — 6장 XAI → 9·10·11장 → 3장 EDA → 1·2장 → 요약·부록
+   (진행표는 §1 "리포트 작성 진행")
+2. **HTML 병합** — `scripts/build_report.py` 로 장별 Markdown → `docs/experiment_report.html`
+3. **PDF 생성** — 브라우저 인쇄로 `docs/experiment_report.pdf`, 20페이지 이상 확인
+4. **GitHub 원격 저장소 생성 + Issue/PR 3개 이상** — 계획은 `docs/github_setup.md`
 
 ## 3-1. 리포트 결론 (확정)
 
@@ -363,103 +360,14 @@
 
 ## 4. 미해결 이슈
 
-- **[해소] Docker 이미지 빌드 실패** — 두 가지 원인이었고 둘 다 고쳤다.
-  1. **BuildKit 빌더의 DNS 실패**: `apt-get update` 가 `Could not resolve 'deb.debian.org'` 로
-     exit 100. 호스트(1.2 MB/s)와 `docker run` 컨테이너에서는 정상이었고 빌더에서만 실패했다.
-     → `docker-compose.yml` 에 `build.network: host` 추가로 해소.
-  2. **`fc-cache` 명령 부재**: `fonts-nanum` 만 설치하면 fontconfig 바이너리가 없어 exit 127.
-     → `fontconfig` 패키지 추가.
-
-- **[해소] `combined` AUC 목표 구간** — 목표를 0.90~0.95 로 정정하고 현행 설정을 최종 채택.
-  (아래는 정정 근거로 남긴다.)
-- **[해소] gender 편향 미검출** — bias_ratio 0.3 상향(ADR-002 v3)으로 DI 0.9502 → 0.9191.
-  민감도 표에서 bias_ratio 에 단조 반응함을 확인해 SPEC §4 요건을 실증했다.
-  다만 DI 절대값은 여전히 0.8 위라 성별에서는 "기준 위반" 수준의 편향이 아니다.
-- **[핵심 발견 · 리포트 필수] age_group 격차는 주입 편향이 아니라 피처 설계에서 온다**
-  `bias_ratio=0` 에서 이미 age_group min/max DI 가 **0.7840** 으로 4/5 규칙 미달이고,
-  0.3 까지 올려도 0.7747 로 거의 변하지 않는다. 대안 피처가 소득·연령을 신호원으로 생성되므로
-  (ADR-001 `nuisance = 0.7·소득 + 0.3·연령`) 연령 정보가 대안 피처를 통해 그대로 전파된다.
-  반면 gender 격차는 bias_ratio=0 에서 DI 1.0030 으로 완전 균등 → 전적으로 주입 편향의 결과.
-  **두 속성의 편향 원인이 다르다는 이 대비가 리포트의 핵심 결과다.**
-  → `docs/report_assets/fairness_narrative.md` §2-1 에 기록 완료.
-- **[동결 · 기록만] 상관 하한 마진 0.0099**
+- **[동결 · 기록만] 상관 하한 여유 0.0099**
   `utility_payment_rate` 상관 0.3099 로 SPEC 하한 0.30 에 근접. **요건은 충족한다.**
   F1~F5 결과는 현재 데이터로 **동결**했다(시뮬레이터·모델·공정성 재생성 없음).
-  지금까지의 모든 수치가 이 데이터 위에서 정합되어 있고, 재생성 시 리포트 자료 전체를
-  다시 만들어야 하기 때문이다. → ADR-001 "한계" 절에 기록 완료.
-- **[참고] gender 편향 미검출 (bias_ratio 0.1 시절 기록)**
-  ADR-002 v2 는 female 과 20-34 의 telecom/utility 를 `bias_ratio × 0.3` 만큼 하향한다.
-  현재 `bias_ratio=0.1` → 하향폭 0.03. 그 결과 **age_group 에서는 편향이 잡히지만
-  (min/max DI 0.7732, EO FPR차 0.1496 위반) gender 에서는 잡히지 않는다 (DI 0.9502)**.
-  연령대는 대안 피처의 연령 신호(ADR-001)와 주입 편향이 같은 방향으로 누적되는 반면,
-  성별은 무작위 합성이라 주입 편향만으로 격차를 만들어야 하기 때문으로 보인다.
-  선택지: (a) `bias_ratio` 0.1 → 0.2~0.3 상향 후 데이터 재생성 + 재학습(약 15분),
-  (b) 현행 유지하고 "성별은 프록시 경로가 약해 편향이 전파되지 않았다"로 해석,
-  (c) `bias_shift_per_ratio` 를 0.3 → 0.4 이상으로 상향(단 상관 요건 재확인 필요).
-  ※ `bias_ratio` 상한은 0.3 (ADR-002 v2, 그 이상은 SPEC §4 상관 요건 위반).
-- **[해석 주의] DI Ratio 정의에 따라 판정이 갈린다**
-  SPEC §1 용어 정의는 "보호 집단 승인율 / 비보호 집단 승인율"이라 age_group 은 0.8358 로 충족이지만,
-  규제 실무에서 흔한 min/max 정의로는 0.7732 로 **미달**이다. 두 값을 모두 산출해 리포트에 병기한다.
-- **[한계 · 리포트 필수 기재] η² 가 0.95 이상으로 극단적**
-  두 ANOVA 모두 η² > 0.95 다. 집단이 서로 다른 피처 구성/알고리즘으로 **고정**돼 있고
-  동일 데이터에 반복 CV 를 적용해 집단 내 fold 변동이 매우 작기 때문이다(표준편차 0.0024~0.0047).
-  실무적 우월성의 크기로 읽으면 안 되며 집단 평균 차이의 절대 크기로 판단해야 한다.
-  또한 반복 CV fold 는 완전 독립이 아니라 p-value 가 실제보다 작게 나온다(ADR-011 한계).
-  → `anova.py` 가 결과에 `effect_size_note` 로 자동 첨부한다.
-- **[한계 · 리포트 필수 기재] 시뮬레이션 데이터의 AUC 상한**
-  실제 신용평가 모델 AUC 는 통상 0.85~0.88 이다. 본 프로젝트의 combined AUC 0.94 대는
-  SPEC §4 의 상관 요건(0.3~0.5)을 부도율 6.68% 이진 타겟에 적용한 결과인 **구조적 상한**이며
-  실무 성능 추정치가 아니다. 절대 수치가 아니라 **상대 비교**(피처그룹 간, 집단 간)로만 해석한다.
-  → ADR-001 v2 "한계" 절, `docs/report_assets/simulator_diagnosis.md` §6 에 기재 완료.
-- **[참고 · 해소된 경위] `combined` AUC 가 초기 목표 구간(0.85~0.90)에 들어오지 않았던 건**
-  ADR-001 v2(공유 잠재요인) 적용으로 v1 의 결합 누수는 제거됐다(combined 0.9999 → **0.9470**).
-  그러나 지시하신 목표 구간 0.85~0.90 에는 미달이며, 지정된 조정 레버
-  (`latent_factor_strength` 0.90~0.92)로는 도달하지 못한다.
-  | w | traditional | alternative | combined |
-  |---:|---:|---:|---:|
-  | 0.85 | 0.8338 | 0.8963 | 0.9470 |
-  | 0.90 | 0.8338 | 0.8870 | 0.9420 |
-  | 0.92 | 0.8338 | 0.8843 | 0.9412 |
-  | 0.94 | 0.8338 | 0.8798 | 0.9396 |
-  남은 0.94 는 누수가 아니라 **전통(0.834)과 대안(0.896)의 정상적인 상보성**이다.
-  구간에 넣으려면 생성 상관을 낮춰야 하는데 그러면 SPEC §4 를 위반한다.
-  | 생성 상관 | 실제 \|corr\| | alternative | combined | SPEC |
-  |---|---|---:|---:|---|
-  | 0.31~0.35 (현행) | 0.309~0.346 | 0.8963 | 0.9470 | 충족 |
-  | 0.26~0.30 | 0.260~0.297 | 0.8453 | 0.9206 | 위반 |
-  | 0.22~0.26 | 0.220~0.259 | 0.7980 | 0.8985 | 위반 |
-  | 0.18~0.22 | 0.181~0.219 | 0.7549 | 0.8788 | 위반 |
-  선택지: (a) 현행 유지하고 combined 0.947 로 전체 학습 진행, (b) 상관 0.22~0.26 으로 낮추고
-  스펙 위반을 리포트에 명시, (c) 목표 구간을 0.90~0.95 로 조정.
-- **[해소] v1 대안 데이터 결합 누수** — ADR-001 v2 로 해소.
-  개별 상관은 스펙대로 0.30~0.49 범위 안에 있으나, 다섯 변수를 함께 쓰면 타겟이 거의 복원된다.
-  `alternative_only` test AUC 0.9864~0.9959, `combined` 0.9901~0.9999.
-  원인은 버그가 아니라 **부도율 6.68% 인 이진 타겟에 대해 점이연상관 0.3~0.5 가 매우 강한 조건**이라는 점이다.
-  단일 피처만으로도 |corr|=0.30 → AUC 0.813, |corr|=0.49 → AUC 0.944 가 나온다.
-  거기에 현재 구현은 타겟을 조건으로 하면 다섯 변수가 서로 거의 독립이라 정보가 그대로 합산된다
-  (조건부 독립 가정 결합 Cohen's d = 3.96 → 이론 AUC 0.9975, 관측 0.9959).
-  선택지(측정치는 100,000행 시뮬레이션 기준):
-  | 안 | 개별 \|corr\| | 5변수 결합 AUC | 스펙 문구 |
-  |---|---|---|---|
-  | A. 현행 유지 | 0.30~0.49 | 0.998 | 충족 |
-  | B1. 범위 하단만 사용 | 0.30~0.35 | 0.985 | 충족 |
-  | **B2. 범위 하단 + 공유 잠재요인 0.85** | 0.30~0.35 | **0.870** | 충족 |
-  | C2. 상관 0.15~0.25 + 공유요인 | 0.15~0.25 | 0.789 | **위반** |
-  B2 는 스펙의 0.3~0.5 조건을 지키면서 결합 판별력을 낮춘다. 공유 잠재요인은
-  "성실한 사람은 통신비도 공과금도 잘 낸다"는 현실 구조이기도 하다. ADR-001 개정이 필요하다.
-- **[해소] 보호 속성 학습 사용 여부** — ADR-008 로 확정: 학습 피처에서 제외, 데이터에는 유지.
-- **[해소] 씬파일러 판정 두 번째 조건** — ADR-009 로 확정: `credit_history_months` 추가.
-- **[해소] 씬파일러 판정 두 조건이 동일 집합** — ADR-010 으로 유형을 분화해 해소.
-  교집합 13,592 < 합집합 45,000.
-- **[제약] 유효 bias_ratio 범위 0 ~ 0.3** — ADR-001 v2 로 생성 상관 여유가 줄어 0.4 부터
-  telecom/utility 상관이 0.30 아래로 내려간다. 실험은 0 ~ 0.3 에서 수행한다.
-- **[제약] bias_ratio 상한** — `bias_shift_per_ratio=0.3` 에서 bias_ratio 가 0.6 을 넘으면
-  telecom/utility 의 target 상관이 0.30 아래로 떨어진다. 실험은 0 ~ 0.5 범위에서 수행한다.
-- **[예정] 승인 임계값 0.30 재검토** — PR 곡선 확인 후 조정 (ADR-003).
-- **[예정] bias_shift_per_ratio 재조정** — 모델 학습 후 실제 DI Ratio 를 보고 판단 (ADR-002 v2).
-- **[미검증] Docker 이미지 빌드** — Docker 29.2.1 / Compose v5.1.0 사용 가능하나
-  Dockerfile / docker-compose.yml 은 아직 스켈레톤.
-- **[제출요건] GitHub 원격 저장소 없음** — commit 10개·Issue/PR 3개 요건 충족을 위해 원격 생성 필요.
+  재생성 시 리포트 자료 전체를 다시 만들어야 하기 때문이다. → ADR-001 "한계" 절에 기록 완료.
+- **[동결 · 기록만] 승인 임계값 0.30 의 정밀도 0.2899**
+  재현율 0.8936 을 얻은 대가로 거절 건 중 실제 부도가 29% 에 그친다.
+  임계값을 바꾸면 DI·EO·Mitigation 결과가 연동돼 바뀌므로 ADR-003 값으로 동결했다.
+  → ADR-003 "사후 관찰" 절, 리포트 5.6절, `fairness_narrative.md` §6 에 기록. 10장 한계에 기재 예정.
 
 ## 5. 세션 히스토리
 
