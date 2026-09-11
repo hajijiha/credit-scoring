@@ -150,16 +150,19 @@ def test_rejection_reasons_are_ranked_and_adverse(explainer, fitted):
         assert reason["shap_contribution"] == pytest.approx(-reason["shap_value_default"], abs=1e-4)
 
 
-def test_display_row_changes_values_not_ranking(explainer, fitted):
+def test_display_row_changes_values_not_ranking(explainer, fitted, config):
     """display_row 는 표시값만 바꾸고 SHAP 순위는 바꾸지 않아야 한다.
 
     회귀 방지: 초기 구현은 역스케일된 값을 모델에 넣어 SHAP 을 계산해
     워터폴과 거절 사유가 서로 다른 피처를 가리켰다.
     """
     _, cols, reference, _, _ = fitted
+    suffix = config["preprocess"]["missing_flag_suffix"]
     row = reference.iloc[4]
     display = row.copy()
     for col in cols:
+        if col.endswith(suffix):
+            continue                                    # 결측 플래그는 0/1 표지이지 표시값이 아니다
         display[col] = float(row[col]) * 3.0 + 7.0      # 표시용으로만 크게 왜곡
 
     plain = explainer.rejection_reasons(row, row["age_group"])
@@ -168,7 +171,31 @@ def test_display_row_changes_values_not_ranking(explainer, fitted):
     assert [r["feature"] for r in plain] == [r["feature"] for r in with_display]
     assert [r["shap_contribution"] for r in plain] == [r["shap_contribution"] for r in with_display]
     for base, shown in zip(plain, with_display):
+        if base["feature"].endswith(suffix) or "기록이 없습니다" in base["explanation"]:
+            # 플래그 자체이거나 플래그가 선 연체 값: 표시값과 무관하게 같은 값으로 표기한다
+            assert shown["current_value"] == base["current_value"]
+            continue
         assert shown["current_value"] == pytest.approx(base["current_value"] * 3.0 + 7.0)
+
+
+def test_sentinel_with_missing_flag_is_described_as_no_record(explainer, fitted, config):
+    """센티넬(-1) + 결측 플래그 1 인 연체 값은 '기록 없음'으로 서술해야 한다.
+
+    회귀 방지: API 는 null 을 그대로 넘겨 '기록 없음' 분기를 탔지만, 배치 경로(run_explain)는
+    역스케일한 센티넬을 넘겨 "30-59일 연체 횟수가 -1회로, ... 대비 적습니다" 가 출력됐다.
+    """
+    _, cols, reference, _, _ = fitted
+    pre = config["preprocess"]
+    column = pre["missing_indicator_columns"][0]
+    row = reference.iloc[0].copy()
+    row[column] = float(pre["missing_sentinel"])
+    row[f"{column}{pre['missing_flag_suffix']}"] = 1
+
+    reasons = explainer.contributing_factors(row, row["age_group"], top_n=len(cols))
+    target = next(r for r in reasons if r["feature"] == column)
+
+    assert "기록이 없습니다" in target["explanation"]
+    assert "-1회" not in target["explanation"]
 
 
 def test_rejection_reasons_respect_top_n(explainer, fitted):

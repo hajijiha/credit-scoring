@@ -171,7 +171,7 @@ explainer:
   top_rejection_reasons: 5               # SPEC §3: 거절 사유 Top 5
   background_sample_size: 2000           # SHAP 계산용 표본
   reference_group_column: age_group      # reference_value = 동일 연령대 평균
-  # 설명 샘플. p=0.9997 같은 자명한 건은 XAI 가치를 보여주지 못하므로 경계 구간도 함께 저장한다.
+  # 설명 샘플. p≈0.97 같은 자명한 건은 XAI 가치를 보여주지 못하므로 경계 구간도 함께 저장한다.
   samples:
     - {name: extreme_rejected_thin_filer, segment: thin_filer, decision: rejected, proba_min: 0.95, proba_max: 1.01}
     - {name: extreme_rejected_normal,      segment: normal,     decision: rejected, proba_min: 0.95, proba_max: 1.01}

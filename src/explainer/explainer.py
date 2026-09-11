@@ -206,7 +206,7 @@ class CreditExplainer:
         if missing:
             # 씬파일러: 값 자체가 '정보 없음'이다. 비교 문장을 만들면 거짓이 된다.
             text = (
-                f"{label} 기록이 없습니다. 동일 연령대 평균은 {reference_text} 입니다 "
+                f"{label} 기록이 없습니다. 동일 연령대 평균은 {reference_text}입니다 "
                 f"(기여도: {contribution:+.2f})"
             )
             return text, True
@@ -261,7 +261,11 @@ class CreditExplainer:
             shap_default = float(shap_row[idx])
             contribution = -shap_default            # 신용도 기여도 (스펙 부호 규약)
             raw_value = shown[feature]
-            missing = raw_value is None or (
+            # '기록 없음'은 두 형태로 들어온다. API 요청은 null(None/NaN) 그대로 오고,
+            # 배치 경로(run_explain)는 전처리를 거친 센티넬(-1) + 결측 플래그 1 로 온다.
+            flag = f"{feature}{self.config['preprocess']['missing_flag_suffix']}"
+            flagged = flag in shown.index and shown[flag] == 1
+            missing = flagged or raw_value is None or (
                 isinstance(raw_value, float) and math.isnan(raw_value)
             )
             # 값이 없으면 전처리와 같은 센티넬로 표기한다(설명 문장은 '기록 없음'으로 낸다).
