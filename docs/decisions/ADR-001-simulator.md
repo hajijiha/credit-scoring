@@ -146,6 +146,10 @@ SPEC §4 가 요구하는 "대안 변수와 타겟의 상관계수 0.3 ~ 0.5" �
 | app_login_frequency | 0.3105 | +0.0105 |
 | **utility_payment_rate** | **0.3099** | **+0.0099** |
 
+> 측정 조건(2026-09-11 명시): `data/processed/train.parquet` 104,999행 — `tests/test_simulator.py` 의 검사 대상.
+> train·valid·test 전체 149,999행으로 재면 `app_login_frequency` 0.3094(+0.0094)가 가장 낮고
+> `utility_payment_rate` 는 0.3107 이다. 두 기준 모두 요건(≥ 0.30)은 충족한다.
+
 요건은 충족하지만 `bias_ratio` 나 `generation_correlation` 을 조금만 더 조정하면 벗어난다.
 여유가 필요하면 `generation_correlation` 을 0.31~0.35 → 0.33~0.40 으로 올려야 하며,
 데이터 재생성과 재학습이 뒤따른다. **F1~F5 결과는 현재 데이터 기준으로 동결한다.**
