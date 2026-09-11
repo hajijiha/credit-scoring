@@ -171,6 +171,21 @@ def test_explain_schema(client, config):
     assert "base_value" in body
 
 
+def test_explain_accepts_missing_delinquency(client, config):
+    """연체 '기록 없음'(null) 입력에서 /explain 이 500 없이 '기록 없음' 문장을 내야 한다.
+
+    회귀 방지: 초기 구현은 float(None) 에서 500 을 냈다. 씬파일러가 그대로 걸리는 경로다.
+    대시보드 기본 입력(경계 거절 사례, 씬파일러 both 유형)은 연체 3컬럼이 null 이고
+    그중 30-59일 연체가 거절 사유 Top 5 에 든다.
+    """
+    payload = dict(config["dashboard"]["default_input"])
+    response = client.post("/explain", json=payload)
+    assert response.status_code == 200
+    texts = [r["explanation"] for r in response.json()["rejection_reasons"]]
+    assert any("기록이 없습니다" in t for t in texts)
+    assert not any("-1회" in t for t in texts)
+
+
 def test_explain_shap_values_cover_model_features(client):
     from src.api.main import state
     body = client.post("/explain", json=BASE_PAYLOAD).json()

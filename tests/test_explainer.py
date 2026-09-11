@@ -214,6 +214,23 @@ def test_reference_value_matches_age_group_mean(explainer, fitted):
         assert explainer.reference_value("telecom_payment_rate", group) == pytest.approx(expected)
 
 
+def test_reference_value_excludes_flagged_sentinel_rows(explainer, fitted, config):
+    """연체 컬럼의 참조 평균은 결측 플래그가 선 행(씬파일러 센티넬)을 빼고 계산해야 한다.
+
+    회귀 방지: 초기 구현은 센티넬(-1)을 평균에 섞어 "동일 연령대 평균 -0회"를 출력했다.
+    """
+    _, _, reference, _, _ = fitted
+    pre = config["preprocess"]
+    column = pre["missing_indicator_columns"][0]
+    flag = f"{column}{pre['missing_flag_suffix']}"
+    for group in ("20-34", "35-54", "55+"):
+        in_group = reference["age_group"] == group
+        expected = reference.loc[in_group & (reference[flag] == 0), column].mean()
+        naive = reference.loc[in_group, column].mean()
+        assert explainer.reference_value(column, group) == pytest.approx(expected)
+        assert expected != pytest.approx(naive)      # 픽스처가 실제로 차이를 만드는지 확인
+
+
 def test_reference_value_differs_between_groups(explainer):
     values = {g: explainer.reference_value("age", g) for g in ("20-34", "35-54", "55+")}
     assert values["20-34"] < values["35-54"] < values["55+"]
