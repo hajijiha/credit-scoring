@@ -214,8 +214,10 @@ def figure_target_distribution(df: pd.DataFrame, config: dict[str, Any], out: Pa
 
     axes[1].barh(["Default rate"], [rate], color=colors[1])
     axes[1].barh(["Default rate"], [1 - rate], left=[rate], color=colors[0])
-    axes[1].text(rate / 2, 0, f"{rate:.2%}", va="center", ha="center",
-                 color="white", fontsize=13, fontweight="bold")
+    # 막대가 좁아(6.7%) 안쪽에 쓰면 글자가 잘린다. 오른쪽 바깥에 흰 바탕으로 얹는다.
+    axes[1].text(rate + 0.012, 0, f"{rate:.2%}", va="center", ha="left",
+                 color="#1a1a1a", fontsize=13, fontweight="bold",
+                 bbox=dict(facecolor="white", edgecolor="none", pad=2.0))
     axes[1].set_xlim(0, 1)
     axes[1].set_xlabel("Share")
     axes[1].set_title("Severe class imbalance")

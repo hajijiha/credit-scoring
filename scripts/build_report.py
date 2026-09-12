@@ -42,7 +42,7 @@ CSS = """
 body {
   font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
                "NanumGothic", "Nanum Gothic", "AppleGothic", sans-serif;
-  font-size: 10pt; line-height: 1.62; color: var(--ink);
+  font-size: 9.5pt; line-height: 1.58; color: var(--ink);
   margin: 0 auto; padding: 0 12mm; max-width: 210mm;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
   word-break: keep-all; overflow-wrap: anywhere;
@@ -81,7 +81,7 @@ th, td { border: 0.5pt solid var(--line); padding: 1.4mm 2mm; vertical-align: to
 th { background: var(--band); font-weight: 700; text-align: left; }
 
 figure { margin: 4mm 0 5mm; text-align: center; break-inside: avoid; }
-figure img { display: block; margin: 0 auto; max-width: 100%; max-height: 112mm; }
+figure img { display: block; margin: 0 auto; max-width: 100%; max-height: 95mm; }
 figcaption { font-size: 8.4pt; color: var(--muted); margin-top: 1.5mm; }
 
 ul, ol { margin: 0 0 3mm; padding-left: 7mm; }
@@ -304,11 +304,13 @@ def build_toc(sections: list[tuple[str, Document]]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--open", action="store_true", help="생성 후 파일 경로만 출력한다")
+    parser.add_argument("--source", help="장 Markdown 디렉터리 (기본: config.report.source_dir)")
+    parser.add_argument("--output", help="출력 HTML 경로 (기본: config.report.output_html)")
     args = parser.parse_args()
 
     cfg = load_config()["report"]
-    source = resolve_path(cfg["source_dir"])
-    output = resolve_path(cfg["output_html"])
+    source = Path(args.source) if args.source else resolve_path(cfg["source_dir"])
+    output = Path(args.output) if args.output else resolve_path(cfg["output_html"])
     files = sorted(source.glob("*.md"))
     if not files:
         print(f"장 파일이 없습니다: {source}", file=sys.stderr)

@@ -48,7 +48,7 @@ PROCESSED = Path(CFG["preprocess"]["output_dir"])
 EXPLAIN = Path(CFG["explainer"]["output_dir"])
 ASSETS = Path(CFG["explainer"]["report_assets_dir"])
 FILES = {
-    "summary": "01_summary.md", "1": "02_problem.md", "2": "03_system.md", "3": "04_data_eda.md",
+    "guide": "00a_reading_guide.md", "summary": "01_summary.md", "1": "02_problem.md", "4": "05_simulator.md", "2": "03_system.md", "3": "04_data_eda.md",
     "6": "07_xai.md", "9": "10_errors.md", "10": "11_limitations.md", "11": "12_conclusion.md",
     "appendix": "99_appendix.md",
 }
@@ -725,7 +725,8 @@ def check_summary(c: Checker, x: Context) -> None:
         c.has(ch, f"ANOVA {key}", f"F = {test['f_statistic']:.2f}", f"η² = {test['effect_size_eta_squared']:.4f}")
     tk = {r["comparison"]: r for r in x.anova["test_2_algorithm"]["post_hoc_tukey"]}
     c.has(ch, "Tukey", f"p_adj = {tk['lightgbm vs xgboost']['p_adj']:.4f}", line=False)
-    c.has(ch, "유형별 uplift", f"{sg(seg('history_only').uplift, 4)}", f"{sg(seg('missing_only').uplift, 4)}")
+    for key in ("history_only", "missing_only"):
+        c.has(ch, f"유형별 uplift {key}", sg(seg(key).uplift, 4), line=False)
     segs = [i for i in x.uplift.index if i not in ("all", "thin_filer")]
     rt, rc = x.uplift.loc[segs].auc_traditional, x.uplift.loc[segs].auc_combined
     c.has(ch, "세그먼트 편차", f"{rt.max() - rt.min():.4f} → {rc.max() - rc.min():.4f}")
@@ -733,6 +734,22 @@ def check_summary(c: Checker, x: Context) -> None:
     c.has(ch, "민감도", f"{sens.loc[0.0].gender_di_ratio:.4f}", f"{sens.loc[0.0].age_group_di_min_max:.4f}")
     share = sum(r["band"] for r in x.randomized_band["age_group"].values()) / len(x.ctx["test"])
     c.has(ch, "확률적 결정", f"{share * 100:.2f}%", line=False)
+    # 핵심 발견 ①: 4장·ADR-001 의 상보성 판정 수치를 그대로 쓰는지
+    sources = _norm(c.doc("4") + Path("docs/decisions/ADR-001-simulator.md").read_text(encoding="utf-8")
+                    + (REPORT / "06_models.md").read_text(encoding="utf-8"))
+    for value in ("0.9999", "0.9470", "0.9396", "0.8985", "0.8355", "0.8902"):
+        c.has(ch, f"발견① {value}", value, line=False)
+        c.true(ch, f"발견① {value} 4장·ADR-001·5장 일치", value in sources)
+    # 핵심 발견 ②: 씬파일러 유형별 uplift 표
+    for label, key in (("| 일반 |", "normal"), ("`history_only`", "history_only"),
+                       ("`missing_only`", "missing_only"), ("**`both`**", "both")):
+        row = seg(key)
+        c.has(ch, f"발견② {key}", label, f"{row.auc_traditional:.4f}", f"{row.auc_combined:.4f}",
+              sg(row.uplift, 4))
+    # 핵심 발견 ③: 연령대 승인율 격차
+    row = x.sensitivity.loc[x.cfg["simulator"]["bias_ratio"]]
+    gap = (row["approval_age_group_55+"] - row["approval_age_group_20-34"]) * 100
+    c.has(ch, "발견③ 승인율 격차", f"{gap:.1f}%p", line=False)
     # 요약의 결론 블록은 §5 확정 문장의 축약본이다(원문 그대로는 11.1절). 핵심 주장과 수치만 대조한다.
     narrative = _norm((ASSETS / "fairness_narrative.md").read_text(encoding="utf-8"))
     claims = (f"씬파일러 {sg(seg('thin_filer').uplift, 3)}, 전체 {sg(seg('all').uplift, 3)}",
@@ -741,6 +758,18 @@ def check_summary(c: Checker, x: Context) -> None:
         c.has(ch, f"결론 문구 {claim[:14]}", claim, line=False)
     c.true(ch, "결론 문구가 §5 서술과 같은 주장", "사후 임계값 조정(ThresholdOptimizer)이" in narrative
            or "사후 임계값 조정" in narrative)
+
+
+def check_guide(c: Checker, x: Context) -> None:
+    ch = "guide"
+    c.has(ch, "테스트 수", f"부록 D ({_collected_tests()['합계']}개)")
+    errors = len(re.findall(r"^\| \d+ \| \d+세션", c.doc("9"), re.M))
+    c.has(ch, "오류 건수", f"**9장**에 {errors}건으로 정리했다")
+    spec = Path("docs/SPEC.md").read_text(encoding="utf-8")
+    items = spec.split("### 9. 동료 평가 질문 예시")[1].count("- [ ]")
+    checklist = c.doc(ch).split("## 평가 체크리스트 대응")[1].split("## 재현과 검증")[0]
+    rows = len(re.findall(r"^\| *\d+ \|", checklist, re.M))
+    c.true(ch, f"체크리스트 {items}항목 전부 매핑", rows == items, f"표 {rows}행 vs 명세 {items}항목")
 
 
 def check_appendix(c: Checker, x: Context) -> None:
@@ -779,7 +808,7 @@ def _collected_tests() -> dict[str, int]:
     return counts
 
 CHECKS = {
-    "summary": check_summary, "1": check_chapter_1, "2": check_chapter_2, "3": check_chapter_3,
+    "guide": check_guide, "summary": check_summary, "1": check_chapter_1, "2": check_chapter_2, "3": check_chapter_3,
     "6": check_chapter_6, "9": check_chapter_9, "10": check_chapter_10, "11": check_chapter_11,
     "appendix": check_appendix,
 }
