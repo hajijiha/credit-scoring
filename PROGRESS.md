@@ -103,7 +103,7 @@
       (api 8000 / dashboard 8501 / mlflow 5000), 대시보드→API 컨테이너 네트워크 경유 확인
 - [x] commit 10개 이상 (2026-09-11 정리 시점 `git rev-list --count HEAD` = 18개)
 - [ ] GitHub 원격 저장소 + Issue/PR 3개 이상 → `docs/github_setup.md` 에 계획 정리
-- [ ] `docs/experiment_report.pdf` 20페이지 이상 — **작성 중** (아래 진행표)
+- [x] `docs/experiment_report.pdf` 20페이지 이상 — **85페이지 생성 완료** (headless Chrome 렌더, 4.7 MB)
 
 ### 리포트 작성 진행 (총 32p 목표, 목차는 `docs/report_outline.md`)
 
@@ -184,6 +184,7 @@
   요약을 **2페이지**로 맞추고 핵심 발견 3개(상보성 판정 / 씬파일러 유형별 uplift / 편향 경로 두 종류) 보강.
   `eda_target_distribution.png` 의 '6.68%' 라벨 잘림 수정(그림 재생성, 나머지 7종 md5 동일).
   최종 교차검증 **389건 전부 일치**.
+- **PDF 생성 완료**: `docs/experiment_report.pdf` **85페이지** / 4.7 MB (headless Chrome 렌더, 저장소에 포함).
 
 **2026-09-10 (16세션) — 리포트 7장·8장·5장 작성**
 
@@ -400,9 +401,11 @@
 
 ## 3. 다음 할 일 (우선순위 순)
 
-1. **PDF 저장** — `docs/experiment_report.html` 을 브라우저에서 열고 인쇄 → `docs/experiment_report.pdf`
-   (A4 · 배경 그래픽 켜기 · 머리글/바닥글 끄기). headless Chrome 렌더 기준 **85페이지**로 요건(20페이지) 충족.
-2. **GitHub 원격 저장소 생성 + Issue/PR 3개 이상** — 계획은 `docs/github_setup.md`
+1. **GitHub 원격 저장소 생성 + Issue/PR 3개 이상** — 계획은 `docs/github_setup.md` (마지막 남은 제출 요건)
+
+> PDF 는 `docs/experiment_report.pdf` 로 생성 완료(85페이지). 다시 만들려면:
+> `python scripts/build_report.py` 후 `chrome --headless=new --no-pdf-header-footer --print-to-pdf=... file:///...`
+> 또는 HTML 을 브라우저에서 열고 인쇄(A4 · 배경 그래픽 켜기 · 머리글/바닥글 끄기).
 
 ## 3-1. 리포트 결론 (확정)
 
