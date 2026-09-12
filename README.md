@@ -117,6 +117,15 @@ docker compose up
 | 대시보드 | http://localhost:8501 | Streamlit 심사 대시보드 (5개 탭) |
 | MLflow | http://localhost:5000 | 실험 추적 · Model Registry |
 
+### 3) 리포트 수치 대조 (선택)
+
+산출물이 준비된 뒤, 리포트(`docs/report/*.md`)에 인용한 수치를 산출물에서 다시 계산해 대조한다.
+
+```bash
+python scripts/verify_report_numbers.py          # 전체
+python scripts/verify_report_numbers.py --chapters 3 6   # 일부 장만
+```
+
 ### 왜 볼륨 마운트인가 (이미지에 굽지 않은 이유)
 
 | 방식 | 문제 |
@@ -170,6 +179,7 @@ credit-scoring/
 ├── Dockerfile                 # python:3.12-slim, 4개 서비스 공용
 ├── docker-compose.yml         # api / dashboard / mlflow / bootstrap
 ├── scripts/bootstrap.sh       # 산출물 생성 (데이터 → 학습 → 분석)
+├── scripts/verify_report_numbers.py  # 리포트 인용 수치를 산출물에서 재계산해 대조
 ├── requirements.txt           # 버전 고정 (+ requirements.lock 스냅샷)
 ├── .env.example
 ├── config/
@@ -186,7 +196,7 @@ credit-scoring/
 │   ├── api/                   # FastAPI (main.py, schemas.py)
 │   └── dashboard/             # Streamlit (app.py, api_client.py)
 ├── models/                    # 학습 산출물 (git 제외)
-├── tests/                     # pytest 166건
+├── tests/                     # pytest 171건
 └── docs/
     ├── SPEC.md                # 과제 원문
     ├── decisions/             # ADR 12건
@@ -216,7 +226,7 @@ credit-scoring/
 ## 테스트
 
 ```bash
-pytest                 # 166건
+pytest                 # 171건
 pytest -q tests/test_api.py tests/test_dashboard.py
 ```
 
@@ -254,5 +264,5 @@ pytest -q tests/test_api.py tests/test_dashboard.py
    p-value 는 보수적으로 읽는다. (ADR-011)
 4. **완화 후 AUC 하락(0.9453 → 0.86)은 성능 저하가 아니다.** 출력이 확률에서 이진 결정으로
    바뀌어 순위 정보가 소실된 결과다. 전/후 비교는 DI·EO·승인율로 판단한다.
-5. **대안 피처의 target 상관이 SPEC 하한(0.30)에 근접해 있다**(최소 여유 0.0099).
+5. **대안 피처의 target 상관이 SPEC 하한(0.30)에 근접해 있다**(최소 여유 train 0.0099 / 전체 0.0094).
    F1~F5 결과는 현재 데이터로 동결했다.

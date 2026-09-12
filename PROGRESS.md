@@ -164,6 +164,8 @@
   (`config.explainer.dependence_axis_clip`). 표본 2,000개 중 이상치 20개 제외, 캡션에 명시.
   6.3절을 "실패한 시각화" → "절단이 필요한 이유 + 구간별 평균 SHAP" 서술로 교체.
   재생성 후 JSON·CSV·워터폴 4종 md5 동일(Summary·telecom 은 렌더링 난수라 기존 파일 복원). pytest 171건.
+- **수치 대조 스크립트**를 저장소에 포함(`scripts/verify_report_numbers.py`). 장별 검사 함수 + `--chapters`,
+  경로는 config 에서 읽는다. README 재현 절차·부록 E 에 사용법 기재.
 
 **2026-09-10 (16세션) — 리포트 7장·8장·5장 작성**
 
