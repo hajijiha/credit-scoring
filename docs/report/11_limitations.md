@@ -173,7 +173,7 @@ in-processing 기법(ExponentiatedGradient 등)은 11장 향후 과제로 남긴
 | 한계 | 위치 |
 |---|---|
 | PSI 는 무작위 층화 분할이라 분포 이동 검출 조건으로는 관대하다 | 5.2절 |
-| `RevolvingUtilization` Dependence Plot 이 이상치로 축이 늘어나 정보를 보여주지 못한다 | 6.3절 |
+| 극단 이상치 때문에 `RevolvingUtilization` Dependence Plot 은 x 축을 99 백분위에서 잘라 그렸다(이상치 20개 제외) | 6.3절 |
 | 설명 소거로 소득·연령의 SHAP 부호가 역설적이다 (시뮬레이터 구조의 산물) | 6.3절 |
 | 방향 일치 검증은 부호 모순만 잡으며, 참조 평균과 SHAP 기준값이 다르다 | 6.5절 |
 | 반사실 설명("무엇을 바꾸면 승인되는가")은 수동 분석이며 API 로 구현하지 않았다 | 6.4절 |

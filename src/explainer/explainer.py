@@ -132,6 +132,13 @@ def base_value_scalar(explanation: Any) -> float:
     return float(np.ravel(base)[0])
 
 
+def axis_clip(values: pd.Series, percentile: float) -> tuple[float, int]:
+    """(백분위 상한, 상한을 넘어 그림에서 빠지는 점의 수)."""
+    column = pd.Series(values, dtype="float64")
+    upper = float(np.percentile(column, percentile))
+    return upper, int((column > upper).sum())
+
+
 class CreditExplainer:
     """챔피언 모델에 대한 SHAP 설명기."""
 
@@ -334,12 +341,37 @@ class CreditExplainer:
         plt.close()
         return path
 
-    def dependence_plot(self, feature: str, x: pd.DataFrame, path: Path) -> Path:
+    def dependence_plot(
+        self,
+        feature: str,
+        x: pd.DataFrame,
+        path: Path,
+        display: pd.DataFrame | None = None,
+        clip_percentile: float | None = None,
+    ) -> Path:
+        """SHAP Dependence Plot.
+
+        clip_percentile 이 주어지면 display(원 단위 값)로 그리고 x 축을 그 백분위에서 자른다.
+        GMSC 의 극단 이상치(RevolvingUtilization 최대 50,708)가 축을 늘려 정상 범위의
+        관계가 보이지 않기 때문이다. SHAP 값 자체는 x(모델 입력)로 계산한다.
+        """
         values, _ = self.explain(x)
+        shown = (display if display is not None else x)[self.feature_columns]
+        extra: dict[str, Any] = {}
+        caption = None
+        if clip_percentile is not None:
+            upper, excluded = axis_clip(shown[feature], clip_percentile)
+            extra["xmax"] = upper
+            caption = (
+                f"x axis clipped at p{clip_percentile:g} = {upper:.2f} (raw units); "
+                f"{excluded:,} of {len(shown):,} outlier points beyond are not shown"
+            )
         plt.figure()
         shap.dependence_plot(
-            feature, values, x[self.feature_columns], show=False, interaction_index="auto"
+            feature, values, shown, show=False, interaction_index="auto", **extra
         )
+        if caption:
+            plt.gcf().axes[0].set_title(caption, fontsize=9)
         plt.savefig(path, dpi=110, bbox_inches="tight")
         plt.close()
         return path

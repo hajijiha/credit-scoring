@@ -13,6 +13,7 @@ from src.explainer.explainer import (
     CreditExplainer,
     _has_final_consonant,
     _subject_particle,
+    axis_clip,
     base_value_scalar,
     shap_values_2d,
 )
@@ -196,6 +197,23 @@ def test_sentinel_with_missing_flag_is_described_as_no_record(explainer, fitted,
 
     assert "기록이 없습니다" in target["explanation"]
     assert "-1회" not in target["explanation"]
+
+
+def test_axis_clip_excludes_points_beyond_percentile():
+    """극단 이상치 2개가 있어도 99 백분위 상한은 정상 범위에 머물고, 빠지는 점 수가 정확해야 한다."""
+    values = pd.Series(list(np.linspace(0.0, 1.0, 998)) + [5_000.0, 50_000.0])
+    upper, excluded = axis_clip(values, 99)
+    assert upper < 2.0
+    assert excluded == int((values > upper).sum()) == 10
+
+
+def test_dependence_plot_with_clip_writes_file(explainer, fitted, tmp_path):
+    _, cols, reference, data, _ = fitted
+    path = explainer.dependence_plot(
+        cols[0], data.head(200), tmp_path / "dep.png",
+        display=reference.head(200), clip_percentile=99,
+    )
+    assert path.exists() and path.stat().st_size > 0
 
 
 def test_rejection_reasons_respect_top_n(explainer, fitted):

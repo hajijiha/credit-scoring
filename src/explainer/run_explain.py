@@ -91,9 +91,13 @@ def main() -> None:
     importance = explainer.global_importance(sample)
     importance.to_csv(out / "global_importance.csv", index=False)
     paths.append(explainer.summary_plot(sample, out / "shap_summary.png"))
+    clips = ecfg.get("dependence_axis_clip") or {}
     for feature in ecfg["dependence_features"]:
+        clip = clips.get(feature)
         paths.append(explainer.dependence_plot(
-            feature, sample, out / f"shap_dependence_{feature}.png"
+            feature, sample, out / f"shap_dependence_{feature}.png",
+            display=test_raw.loc[sample.index] if clip is not None else None,
+            clip_percentile=clip,
         ))
 
     logger.info("전역 중요도 상위 %d개:", ecfg["summary_max_display"])

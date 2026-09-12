@@ -160,6 +160,13 @@ dashboard:
   request_timeout_seconds: 10
   static_assets_dir: docs/report_assets     # 사전 생성 이미지(모델 파일 아님)
 
+report:
+  # 실험 리포트: 장별 Markdown 을 파일명 순서로 이어 붙여 단일 HTML 을 만든다(scripts/build_report.py).
+  source_dir: docs/report
+  output_html: docs/experiment_report.html
+  title: XAI 기반 대안신용평가 시스템 — 실험 리포트
+  toc_marker: "<!-- TOC -->"
+
 explainer:
   feature_names_file: config/feature_names.yaml
   output_dir: data/processed/explain     # 산출물 원본
@@ -168,6 +175,9 @@ explainer:
   dependence_features:                   # 대안 1개 + 전통 1개로 대비 (SPEC §3: 최소 2개)
     - telecom_payment_rate
     - RevolvingUtilizationOfUnsecuredLines
+  # 극단 이상치로 x 축이 늘어나는 피처: 원 단위로 그리고 이 백분위에서 축을 자른다 (리포트 6.3절)
+  dependence_axis_clip:
+    RevolvingUtilizationOfUnsecuredLines: 99
   top_rejection_reasons: 5               # SPEC §3: 거절 사유 Top 5
   background_sample_size: 2000           # SHAP 계산용 표본
   reference_group_column: age_group      # reference_value = 동일 연령대 평균
