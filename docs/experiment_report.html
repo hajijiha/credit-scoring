@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>XAI 기반 대안신용평가 시스템 — 실험 리포트</title>
+<style>
+:root { --ink:#1a1a1a; --muted:#5b6166; --line:#d8dce0; --accent:#1f4e79; --band:#f2f5f8; }
+
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm;
+  @bottom-center { content: counter(page) " / " counter(pages); font-size: 8.5pt; color: #7a7f85; }
+}
+@page :first { @bottom-center { content: none; } }
+
+* { box-sizing: border-box; }
+body {
+  font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
+               "NanumGothic", "Nanum Gothic", "AppleGothic", sans-serif;
+  font-size: 10pt; line-height: 1.62; color: var(--ink);
+  margin: 0 auto; padding: 0 12mm; max-width: 210mm;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+section.chapter { break-before: page; }
+section.cover, section.toc { break-after: page; }
+section.cover { break-before: auto; padding-top: 28mm; text-align: center; }
+section.cover h1 { font-size: 26pt; border: 0; margin-bottom: 2mm; }
+section.cover h2 { font-size: 14pt; color: var(--muted); border: 0; font-weight: 500; }
+section.cover table { margin: 12mm auto; width: 88%; }
+section.cover blockquote { text-align: left; margin-top: 14mm; }
+
+h1, h2, h3, h4 { break-after: avoid; break-inside: avoid; line-height: 1.35; }
+h1 { font-size: 19pt; margin: 0 0 6mm; padding-bottom: 2.5mm; border-bottom: 2.2pt solid var(--accent); }
+h2 { font-size: 13.5pt; margin: 8mm 0 3mm; color: var(--accent); }
+h3 { font-size: 11pt; margin: 6mm 0 2mm; }
+h4 { font-size: 10pt; margin: 5mm 0 2mm; color: var(--muted); }
+p { margin: 0 0 3mm; }
+p.note { font-size: 8.6pt; color: var(--muted); margin-top: -1.5mm; }
+strong { font-weight: 700; }
+a { color: var(--accent); text-decoration: none; }
+code { font-family: "D2Coding", "Consolas", "Nanum Gothic Coding", "DejaVu Sans Mono", monospace;
+       font-size: 0.88em; background: var(--band); padding: 0.5pt 2pt; border-radius: 2pt; }
+pre { background: var(--band); border: 0.6pt solid var(--line); border-radius: 3pt;
+      padding: 3mm 4mm; overflow: hidden; break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 7.6pt; line-height: 1.35; white-space: pre; }
+blockquote { margin: 4mm 0; padding: 2.5mm 4mm; border-left: 2.5pt solid var(--accent);
+             background: var(--band); break-inside: avoid; }
+blockquote p:last-child { margin-bottom: 0; }
+hr { border: 0; border-top: 0.6pt solid var(--line); margin: 6mm 0; }
+
+table { width: 100%; border-collapse: collapse; margin: 3mm 0 4mm; font-size: 8.4pt; break-inside: auto; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th, td { border: 0.5pt solid var(--line); padding: 1.4mm 2mm; vertical-align: top; }
+th { background: var(--band); font-weight: 700; text-align: left; }
+
+figure { margin: 4mm 0 5mm; text-align: center; break-inside: avoid; }
+figure img { display: block; margin: 0 auto; max-width: 100%; max-height: 112mm; }
+figcaption { font-size: 8.4pt; color: var(--muted); margin-top: 1.5mm; }
+
+ul, ol { margin: 0 0 3mm; padding-left: 7mm; }
+li { margin-bottom: 1.2mm; }
+
+section.toc h1 { border-bottom-width: 1.2pt; }
+nav.toc ol { list-style: none; padding-left: 0; counter-reset: none; }
+nav.toc > ol > li { margin: 2mm 0 1mm; font-weight: 700; }
+nav.toc ol ol { padding-left: 6mm; margin: 0.8mm 0; }
+nav.toc ol ol li { font-weight: 400; font-size: 9pt; color: var(--muted); }
+</style>
+</head>
+<body>
+<section class="cover" id="00_cover"><h1 id="00_cover-h0">XAI 기반 대안신용평가 시스템</h1>
+<h2 id="00_cover-h1">실험 리포트</h2>
+<p><strong>씬파일러 신용위험 평가 · 설명가능성 · 집단 공정성 검증</strong></p>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>과제</td><td>37_XAI 기반 대안신용평가 시스템 개발</td></tr><tr><td>팀 구성</td><td>1인 프로젝트</td></tr><tr><td>작성일</td><td>2026-09-12</td></tr><tr><td>데이터</td><td>Give Me Some Credit (Kaggle) 149,999행 + 대안 데이터 시뮬레이션</td></tr><tr><td>챔피언 모델</td><td><code>xgboost</code> / <code>combined</code> / <code>class_weight</code> (v1.0)</td></tr><tr><td>저장소 구성</td><td>소스 <code>src/</code> · 테스트 <code>tests/</code> 171개 · 설계 결정 <code>docs/decisions/</code> 12건</td></tr></tbody></table>
+<blockquote><p><strong>면책 조항</strong></p>
+<p><strong>본 시스템은 교육 목적으로 개발되었으며, 실제 금융 의사결정에 사용할 수 없습니다.</strong></p>
+<p>이 리포트의 대안 데이터(통신비 · 공과금 납부율 등 5개 변수)와 성별은 실제 관측치가 아니라 시뮬레이션으로 합성한 값이다. 성능 수치는 시뮬레이터 구조에 기인한 상한이며 실무 성능의 추정치가 아니다(10장). 법령 · 가이드라인 대응 표는 교육 목적의 매핑이며 법적 요건 충족을 보증하지 않는다.</p></blockquote>
+</section>
+<section class="toc" id="toc"><h1>목차</h1><nav class="toc"><ol>
+<li><a href="#01_summary-h0">요약 (Executive Summary)</a>
+<ol>
+<li><a href="#01_summary-h1">결론</a></li>
+<li><a href="#01_summary-h2">핵심 수치</a></li>
+<li><a href="#01_summary-h3">세 질문에 대한 답</a></li>
+<li><a href="#01_summary-h4">해석할 때 주의할 점</a></li>
+<li><a href="#01_summary-h5">리포트 구성</a></li>
+</ol>
+</li>
+<li><a href="#02_problem-h0">1. 문제 정의</a>
+<ol>
+<li><a href="#02_problem-h1">1.1 씬파일러와 금융 포용성</a></li>
+<li><a href="#02_problem-h2">1.2 대안신용평가: 해법과 새로운 위험</a></li>
+<li><a href="#02_problem-h3">1.3 규제 요건</a></li>
+<li><a href="#02_problem-h4">1.4 이 프로젝트의 세 질문</a></li>
+<li><a href="#02_problem-h5">1.5 접근 방법과 범위</a></li>
+<li><a href="#02_problem-h8">1.6 성공 기준과 결과</a></li>
+<li><a href="#02_problem-h9">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#03_system-h0">2. 시스템 개요</a>
+<ol>
+<li><a href="#03_system-h1">2.1 아키텍처</a></li>
+<li><a href="#03_system-h2">2.2 파이프라인</a></li>
+<li><a href="#03_system-h3">2.3 서비스</a></li>
+<li><a href="#03_system-h4">2.4 모듈 구성</a></li>
+<li><a href="#03_system-h5">2.5 기술 스택</a></li>
+<li><a href="#03_system-h6">2.6 설계 원칙</a></li>
+<li><a href="#03_system-h7">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#04_data_eda-h0">3. 데이터와 EDA</a>
+<ol>
+<li><a href="#04_data_eda-h1">3.1 데이터셋</a></li>
+<li><a href="#04_data_eda-h3">3.2 타겟: 부도율 6.68%</a></li>
+<li><a href="#04_data_eda-h4">3.3 결측: 원래 있던 것과 만든 것</a></li>
+<li><a href="#04_data_eda-h6">3.4 분포와 이상치</a></li>
+<li><a href="#04_data_eda-h9">3.5 대안 데이터 (시뮬레이션)</a></li>
+<li><a href="#04_data_eda-h11">3.6 씬파일러</a></li>
+<li><a href="#04_data_eda-h12">3.7 보호 속성</a></li>
+<li><a href="#04_data_eda-h13">3.8 전처리와 분할</a></li>
+<li><a href="#04_data_eda-h14">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#05_simulator-h0">4. 방법론: 대안 데이터 시뮬레이터 설계와 진단</a>
+<ol>
+<li><a href="#05_simulator-h1">4.1 설계 목표와 제약</a></li>
+<li><a href="#05_simulator-h5">4.2 v1 구현과 문제 발견</a></li>
+<li><a href="#05_simulator-h8">4.3 원인 분석</a></li>
+<li><a href="#05_simulator-h13">4.4 v2: 공유 잠재요인 도입</a></li>
+<li><a href="#05_simulator-h16">4.5 w 레버 실험과 상보성 판정</a></li>
+<li><a href="#05_simulator-h20">4.6 씬파일러 유형 분화</a></li>
+</ol>
+</li>
+<li><a href="#06_models-h0">5. 모델 비교</a>
+<ol>
+<li><a href="#06_models-h1">5.1 실험 설계</a></li>
+<li><a href="#06_models-h5">5.2 18개 조합 전체 결과</a></li>
+<li><a href="#06_models-h7">5.3 피처 그룹 비교: 대안 데이터의 기여</a></li>
+<li><a href="#06_models-h8">5.4 씬파일러 유형별 uplift — 이 장의 핵심 결과</a></li>
+<li><a href="#06_models-h11">5.5 불균형 처리와 알고리즘 선정</a></li>
+<li><a href="#06_models-h15">5.6 점수 매핑과 임계값</a></li>
+<li><a href="#06_models-h16">5.7 MLflow 실험 추적</a></li>
+<li><a href="#06_models-h17">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#07_xai-h0">6. XAI 분석</a>
+<ol>
+<li><a href="#07_xai-h1">6.1 무엇을 설명하는가: 단위와 부호</a></li>
+<li><a href="#07_xai-h4">6.2 전역 해석: 대안 피처가 판단의 중심에 있다</a></li>
+<li><a href="#07_xai-h8">6.3 Dependence Plot: 대안 1 + 전통 1</a></li>
+<li><a href="#07_xai-h12">6.4 지역 해석: 네 사례의 Waterfall</a></li>
+<li><a href="#07_xai-h17">6.5 거절 사유 생성 로직</a></li>
+<li><a href="#07_xai-h22">6.6 씬파일러의 '기록 없음'은 설명에서도 별도 분기를 요구한다</a></li>
+<li><a href="#07_xai-h26">6.7 규제 대응: 신용정보법 제36조의2</a></li>
+<li><a href="#07_xai-h27">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#08_fairness-h0">7. 공정성 검증과 Bias Mitigation</a>
+<ol>
+<li><a href="#08_fairness-h1">7.1 실험 설계: 직접 경로를 차단한다</a></li>
+<li><a href="#08_fairness-h5">7.2 완화 전 측정</a></li>
+<li><a href="#08_fairness-h9">7.3 <code>bias_ratio</code> 민감도: 두 종류의 간접 편향</a></li>
+<li><a href="#08_fairness-h13">7.4 Bias Mitigation 결과</a></li>
+<li><a href="#08_fairness-h17">7.5 공정성-성능 트레이드오프</a></li>
+<li><a href="#08_fairness-h19">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#09_anova-h0">8. ANOVA 통계 검증</a>
+<ol>
+<li><a href="#09_anova-h1">8.1 관측 단위와 통제 방식</a></li>
+<li><a href="#09_anova-h5">8.2 검증 1: 피처 그룹별 AUC 비교</a></li>
+<li><a href="#09_anova-h8">8.3 검증 2: 알고리즘별 AUC 비교</a></li>
+<li><a href="#09_anova-h11">8.4 가정 진단</a></li>
+<li><a href="#09_anova-h14">8.5 η² &gt; 0.95 를 어떻게 읽어야 하는가</a></li>
+<li><a href="#09_anova-h18">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#10_errors-h0">9. 검증 과정에서 발견하고 수정한 오류</a>
+<ol>
+<li><a href="#10_errors-h1">9.1 오류 목록</a></li>
+<li><a href="#10_errors-h4">9.2 반복된 유형 ①: stale 수치 — 5건, 모두 같은 뿌리</a></li>
+<li><a href="#10_errors-h6">9.3 반복된 유형 ②: 한 곳만 고친 수정</a></li>
+<li><a href="#10_errors-h7">9.4 재발 방지 장치의 실태</a></li>
+<li><a href="#10_errors-h8">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#11_limitations-h0">10. 한계</a>
+<ol>
+<li><a href="#11_limitations-h1">10.1 시뮬레이션 데이터의 AUC 는 구조적 상한이다</a></li>
+<li><a href="#11_limitations-h2">10.2 상관 하한 여유가 0.01 에 못 미친다</a></li>
+<li><a href="#11_limitations-h3">10.3 승인 임계값 0.30 의 정밀도는 0.2899 다</a></li>
+<li><a href="#11_limitations-h4">10.4 성별은 100% 합성이다</a></li>
+<li><a href="#11_limitations-h5">10.5 η² 는 과대평가되고, p-value 는 과소평가된다</a></li>
+<li><a href="#11_limitations-h6">10.6 ThresholdOptimizer 의 결정은 확률적이고, 보호 속성을 결정 시점에 쓴다</a></li>
+<li><a href="#11_limitations-h9">10.7 German Credit 으로 외부 검증하지 않았다</a></li>
+<li><a href="#11_limitations-h10">본문에서 다룬 그 밖의 한계</a></li>
+<li><a href="#11_limitations-h11">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#12_conclusion-h0">11. 결론</a>
+<ol>
+<li><a href="#12_conclusion-h1">11.1 확정 결론</a></li>
+<li><a href="#12_conclusion-h2">11.2 세 질문에 대한 답</a></li>
+<li><a href="#12_conclusion-h6">11.3 실무 시사점</a></li>
+<li><a href="#12_conclusion-h7">11.4 향후 과제</a></li>
+<li><a href="#12_conclusion-h8">이 장의 결론</a></li>
+</ol>
+</li>
+<li><a href="#99_appendix-h0">부록</a>
+<ol>
+<li><a href="#99_appendix-h1">A. 설계 결정(ADR) 색인</a></li>
+<li><a href="#99_appendix-h2">B. API 명세</a></li>
+<li><a href="#99_appendix-h5">C. 재현 절차</a></li>
+<li><a href="#99_appendix-h6">D. 테스트 구성</a></li>
+<li><a href="#99_appendix-h7">E. 수치 대조 스크립트</a></li>
+<li><a href="#99_appendix-h8">F. 산출물 목록</a></li>
+</ol>
+</li>
+</ol></nav></section>
+<section class="chapter" id="01_summary"><h1 id="01_summary-h0">요약 (Executive Summary)</h1>
+<p>금융 이력이 부족한 <strong>씬파일러</strong>를 대상으로, 실제 신용 데이터(GMSC)에 대안 데이터 5개 변수를 시뮬레이션으로 결합해 신용위험 모델을 만들고, 그 판단의 <strong>설명가능성</strong>(SHAP)과 <strong>집단 공정성</strong>(Fairlearn)을 함께 검증했다. 결과는 FastAPI 심사 API · Streamlit 대시보드 · MLflow 로 구성된 시스템으로 제공된다.</p>
+<h2 id="01_summary-h1">결론</h2>
+<blockquote><p>전통 신용정보가 결손된 씬파일러에게 대안 데이터는 통계적으로 유의한 AUC 개선을 제공한다 (씬파일러 +0.152, 전체 +0.110; ANOVA F=4245.65, p&lt;0.001, η²=0.9933). 그러나 보호 속성을 학습에서 제외해도 편향은 대안 피처를 경유해 전파되며, 그 경로는 <strong>측정 편향(성별)</strong> 과 <strong>피처 내재 상관(연령대)</strong> 두 종류로 구분된다. 후자는 편향 원인 제거가 예측력 손실을 수반하므로 <strong>사후 임계값 조정이 현실적 대응</strong>이다.</p></blockquote>
+<h2 id="01_summary-h2">핵심 수치</h2>
+<table><thead><tr><th>영역</th><th>지표</th><th>결과</th><th>기준</th><th>장</th></tr></thead><tbody><tr><td>성능</td><td>Test AUC-ROC</td><td><strong>0.9453</strong></td><td>≥ 0.78</td><td>5.2</td></tr><tr><td></td><td>Test KS</td><td><strong>0.7502</strong></td><td>≥ 0.28</td><td>5.2</td></tr><tr><td></td><td>PSI (train ↔ test)</td><td><strong>0.0005</strong></td><td>&lt; 0.1</td><td>5.2</td></tr><tr><td>씬파일러</td><td>AUC uplift (전통 → 통합)</td><td><strong>+0.1518</strong> (유형 <code>both</code> +0.1883)</td><td>≥ +0.03</td><td>5.4</td></tr><tr><td>공정성 (완화 전)</td><td>DI · gender / age_group</td><td>0.9191 / 0.8375 (min/max <strong>0.7747</strong>)</td><td>0.8 ~ 1.25</td><td>7.2</td></tr><tr><td></td><td>EO FPR 차이 · age_group</td><td><strong>0.1487</strong></td><td>≤ 0.10</td><td>7.2</td></tr><tr><td>공정성 (완화 후)</td><td>DI · gender / age_group</td><td>0.9942 / 0.9433 (min/max 0.9245)</td><td>0.8 ~ 1.25</td><td>7.4</td></tr><tr><td></td><td>EO FPR 차이 · age_group</td><td><strong>0.0155</strong></td><td>≤ 0.10</td><td>7.4</td></tr><tr><td>ANOVA</td><td>검증 1 피처 그룹</td><td>F = 4245.65, p = 9.64 × 10⁻⁶³, η² = 0.9933</td><td>p &lt; 0.05</td><td>8.2</td></tr><tr><td></td><td>검증 2 알고리즘</td><td>F = 804.38, p = 1.68 × 10⁻⁴², η² = 0.9658</td><td>p &lt; 0.05</td><td>8.3</td></tr></tbody></table>
+<p class="note">각주: 챔피언 <code>xgboost | combined | class_weight</code>, <code>bias_ratio = 0.3</code>, test 22,500행, 승인 임계값 0.30. ANOVA 는 RepeatedStratifiedKFold(5×4) fold AUC, 그룹당 n=20, 나머지 요인 고정(ADR-011).</p>
+<h2 id="01_summary-h3">세 질문에 대한 답</h2>
+<p><strong>Q1 성능 — 대안 데이터는 전통 정보가 부족한 사람에게 더 크게 기여한다.</strong> 씬파일러 유형별 uplift 가 <code>history_only</code> +0.1013 &lt; <code>missing_only</code> +0.1681 &lt; <code>both</code> +0.1883 으로 전통 피처 결손이 클수록 커지고, 통합 모델은 세그먼트 간 AUC 편차를 0.1131 → 0.0195 로 줄인다. 알고리즘은 XGBoost 와 LightGBM 이 통계적으로 구분되지 않아(p_adj = 0.6468) 설명 도구 성숙도로 XGBoost 를 골랐다.</p>
+<p><strong>Q2 설명가능성 — 설명의 가치는 경계 사례에서 드러나고, 충실성은 따로 설계해야 한다.</strong> 부도 확률 0.375 로 거절된 씬파일러(실제로는 비부도)는 통신비 · 공과금 납부율을 각 2%p 올리면 승인된다. 반면 대안 피처가 들어가며 소득 · 연령의 SHAP 부호가 뒤집히는 설명 소거, 연체 '기록 없음'을 숫자로 다룰 때의 "−1회로 적습니다" 같은 오류는 정확한 SHAP 값에서도 틀린 문장이 나올 수 있음을 보였다.</p>
+<p><strong>Q3 공정성 — 보호 속성을 빼도 차별은 사라지지 않는다.</strong> <code>bias_ratio = 0</code> 에서 성별 DI 는 1.0030 으로 균등하지만 연령대 min/max DI 는 이미 0.7840 이다. 성별 격차는 주입한 측정 편향, 연령대 격차는 대안 피처 생성 구조에 내재한 상관에서 온다. ThresholdOptimizer 로 EO FPR 차이를 0.1487 → 0.0155 로 줄였지만, 그 대가로 age_group 기준 고객의 5.83% 가 확률적으로 결정되고 보호 속성을 결정 시점에 직접 사용하게 된다.</p>
+<h2 id="01_summary-h4">해석할 때 주의할 점</h2>
+<ul><li><strong>절대 수치가 아니라 상대 비교로 읽는다.</strong> AUC 0.9453 은 명세의 상관 요건(0.3~0.5)을 부도율 6.68% 에 적용해 생긴 구조적 상한이다(10.1절).</li><li><strong>성별 결과는 설계의 확인이다.</strong> 성별은 타겟과 독립인 무작위 합성이다(10.4절).</li><li><strong>η² &gt; 0.95 와 극단적으로 작은 p-value 는 반복 CV 설계의 산물이다.</strong> 판단은 평균 차이의 크기로 한다(8.5절).</li><li>검증 과정에서 발견하고 수정한 오류 12건과, 리포트 인용 수치를 산출물에서 다시 계산하는 대조 절차를 9장과 부록 E 에 기록했다.</li></ul>
+<h2 id="01_summary-h5">리포트 구성</h2>
+<table><thead><tr><th>장</th><th>내용</th></tr></thead><tbody><tr><td>1 · 2</td><td>문제 정의, 시스템 개요</td></tr><tr><td>3 · 4</td><td>데이터와 EDA, 대안 데이터 시뮬레이터 설계와 진단</td></tr><tr><td>5 · 6 · 7 · 8</td><td>모델 비교, XAI 분석, 공정성 검증과 완화, ANOVA 통계 검증</td></tr><tr><td>9 · 10 · 11</td><td>발견하고 수정한 오류, 한계, 결론</td></tr><tr><td>부록</td><td>ADR 색인, API 명세, 재현 절차, 테스트 목록, 수치 대조 스크립트</td></tr></tbody></table></section>
+<section class="chapter" id="02_problem"><h1 id="02_problem-h0">1. 문제 정의</h1>
+<p>신용평가 모델은 과거의 금융 이력으로 미래의 부도를 예측한다. 그렇다면 <strong>이력이 없는 사람</strong>은 어떻게 평가해야 하는가. 이 장은 그 질문에서 출발해, 대안 데이터라는 답이 새로 만들어내는 두 가지 위험 (설명할 수 없는 판단, 보이지 않는 차별)까지를 문제로 정의한다.</p>
+<hr>
+<h2 id="02_problem-h1">1.1 씬파일러와 금융 포용성</h2>
+<p><strong>씬파일러(thin filer)</strong> 는 금융 이력이 부족해 기존 CB(신용평가) 모델로는 적절한 평가가 어려운 개인이다. 사회초년생, 프리랜서, 주부가 대표적이다. 과제 명세는 국내 금융이력부족자를 2024년 기준 <strong>약 1,100만 명</strong>으로 적고 있다.</p>
+<p>본 프로젝트는 명세 §4 의 정의를 그대로 따른다.</p>
+<blockquote><p>금융 연체 관련 컬럼 <strong>2개 이상 결측</strong>이거나, 신용카드 거래 이력이 <strong>12개월 미만</strong>인 고객</p></blockquote>
+<p>문제는 이들이 <strong>위험해서가 아니라 정보가 없어서</strong> 불리하게 평가된다는 데 있다. 이력 기반 모델은 기록이 없는 사람을 평균적인 위험으로 볼 근거조차 갖지 못한다. 결과는 일괄 거절이거나 실제 위험과 무관한 높은 금리다.</p>
+<p>본 프로젝트의 데이터에서도 이 현상이 그대로 나타난다. 전통 피처만으로 학습한 모델의 test AUC 는 일반 고객 <strong>0.8548</strong>, 씬파일러 <strong>0.7831</strong> 이다(5.4절). 연체 기록도 거래 이력도 없는 <code>both</code> 유형은 <strong>0.7417</strong> 까지 떨어진다. 같은 모델이 집단에 따라 다른 품질로 평가하는 것 자체가 금융 포용성의 문제다.</p>
+<hr>
+<h2 id="02_problem-h2">1.2 대안신용평가: 해법과 새로운 위험</h2>
+<p><strong>대안신용평가(alternative credit scoring)</strong> 는 통신비·공과금 납부, 소비 패턴 같은 비금융 데이터로 신용을 평가한다. 과제 명세는 국내 사례로 카카오뱅크(AUC 87%), 케이뱅크(대손율 26.5% 감소), 토스뱅크(TSS 모델)를 든다.</p>
+<p class="note">각주: 1.1~1.2절의 국내 통계와 사례는 과제 명세(<code>docs/SPEC.md</code> §1, 참고자료)의 인용이며 본 프로젝트에서 독립적으로 검증하지 않았다.</p>
+<p>대안 데이터는 씬파일러 문제를 풀 수 있다. 그러나 동시에 두 가지 위험을 들여온다.</p>
+<table><thead><tr><th>위험</th><th>내용</th><th>왜 대안 데이터에서 더 심각한가</th></tr></thead><tbody><tr><td><strong>설명할 수 없는 판단</strong></td><td>거절된 고객이 이유를 알 수 없다</td><td>부스팅 모델 + 고객이 신용 정보로 인식하지 않는 데이터. "앱 접속 빈도가 낮아서 거절"은 설명 없이는 납득되지 않는다</td></tr><tr><td><strong>보이지 않는 차별</strong></td><td>보호 속성을 쓰지 않아도 특정 집단이 불리해진다</td><td>통신 요금 납부 이력이나 앱 사용 패턴은 연령·소득과 자연스럽게 상관된다. 보호 속성을 빼도 그 상관을 통해 편향이 전파될 수 있다</td></tr></tbody></table>
+<p>씬파일러를 돕기 위해 도입한 모델이 설명할 수 없는 이유로 특정 연령대를 거절한다면, 금융 포용성이라는 목적 자체가 무너진다. <strong>성능, 설명가능성, 공정성은 따로 검증할 수 없는 하나의 문제</strong>다.</p>
+<hr>
+<h2 id="02_problem-h3">1.3 규제 요건</h2>
+<table><thead><tr><th>규범</th><th>요구</th><th>본 프로젝트의 대응</th></tr></thead><tbody><tr><td><strong>신용정보법 제36조의2</strong></td><td>자동화평가 결과에 대한 설명 요구권, 이의제기 · 재산출 요구</td><td>거절 사유 Top 5 자연어 설명(<code>/explain</code>), 반사실 분석(6장)</td></tr><tr><td><strong>금융위원회 금융분야 AI 가이드라인</strong></td><td>금융 AI 의 설명가능성 · 공정성 기준</td><td>SHAP 전역·지역 해석(6장), DI · Equalized Odds 검증과 완화(7장)</td></tr><tr><td>명세 §7 금융 규제 대응</td><td>모든 평가 결과에 SHAP 설명, 거절 시 3가지 이상 사유, 공정성 분석 문서화와 완화 조치 기록</td><td>6장 · 7장 · ADR-004</td></tr><tr><td>명세 §7 윤리</td><td>민감 정보의 피처 사용 금지, 면책 조항 명시</td><td>보호 속성 학습 제외(ADR-008), 표지 · API · 대시보드에 면책 문구</td></tr></tbody></table>
+<p class="note">각주: 규범의 요구는 과제 명세가 요약한 수준으로 적었다. 본 시스템은 교육 목적이며 법적 요건 충족을 보증하지 않는다.</p>
+<p>이 요건들은 결과의 <strong>존재</strong>를 요구한다. 설명이 있어야 하고, 공정성 분석이 있어야 한다. 본 프로젝트는 여기서 한 걸음 더 나아가 그 결과가 <strong>맞는지</strong>를 검증한다. 틀린 설명과 잘못 읽은 공정성 지표는 없는 것보다 해롭기 때문이다(6.6절, 7.2절, 9장).</p>
+<hr>
+<h2 id="02_problem-h4">1.4 이 프로젝트의 세 질문</h2>
+<table><thead><tr><th>#</th><th>질문</th><th>검증 방법</th><th>장</th></tr></thead><tbody><tr><td><strong>Q1 성능</strong></td><td>대안 데이터는 씬파일러의 평가를 개선하는가? 그렇다면 <strong>누구에게</strong> 더 큰가?</td><td>피처 그룹 3종 × 알고리즘 3종 × 불균형 처리 2종, 씬파일러 유형별 AUC uplift, One-way ANOVA</td><td>5, 8</td></tr><tr><td><strong>Q2 설명가능성</strong></td><td>모델의 판단을 고객이 이해하고 <strong>행동으로 옮길 수 있는</strong> 거절 사유로 바꿀 수 있는가?</td><td>SHAP 전역·지역 해석, 거절 사유 자연어 생성, 경계 사례 반사실 분석</td><td>6</td></tr><tr><td><strong>Q3 공정성</strong></td><td>보호 속성을 학습에서 빼면 차별이 사라지는가? 사라지지 않는다면 <strong>어떤 경로로</strong> 전파되고, 완화는 무엇을 대가로 하는가?</td><td>DI Ratio · Equalized Odds, <code>bias_ratio</code> 민감도, ThresholdOptimizer 전/후 비교</td><td>7</td></tr></tbody></table>
+<hr>
+<h2 id="02_problem-h5">1.5 접근 방법과 범위</h2>
+<h3 id="02_problem-h6">실제 데이터 위에 통제된 대안 데이터를 얹는다</h3>
+<p>공개된 대안 데이터는 없다. 그래서 실제 신용 데이터(GMSC 149,999행)에 대안 데이터 5개 변수를 <strong>시뮬레이션</strong>으로 붙였다(4장). 이 선택에는 약점과 강점이 함께 있다.</p>
+<table><thead><tr><th></th><th>내용</th></tr></thead><tbody><tr><td>약점</td><td>절대 성능은 실제 대안 데이터의 예측력이 아니라 시뮬레이터 설계의 결과다. AUC 0.9453 은 구조적 상한이다(10.1절)</td></tr><tr><td><strong>강점</strong></td><td><strong>편향을 알고 넣을 수 있다.</strong> 어떤 집단에 어떤 크기의 측정 편향을 주입했는지 알기 때문에, 관측된 격차가 주입한 편향인지 피처에 원래 있던 상관인지 <strong>분리</strong>할 수 있다(7.3절)</td></tr></tbody></table>
+<p>실제 데이터에서는 불가능한 이 분리가 Q3 에 답하는 핵심 도구다. 따라서 이 리포트의 결론은 <strong>절대 수치가 아니라 상대 비교와 메커니즘</strong>으로 읽어야 한다.</p>
+<h3 id="02_problem-h7">범위 밖</h3>
+<ul><li>실제 대안 데이터 수집과 검증</li><li>실서비스 배포, 모니터링, 이의제기 업무 절차</li><li>명세의 보너스 과제(LIME 비교, 반사실 설명 API, Two-way ANOVA, 드리프트 탐지, A/B 테스트) — 11.4절 향후 과제</li></ul>
+<hr>
+<h2 id="02_problem-h8">1.6 성공 기준과 결과</h2>
+<table><thead><tr><th>기준</th><th>명세 목표</th><th>결과</th><th>판정</th><th>장</th></tr></thead><tbody><tr><td>Test AUC-ROC</td><td>≥ 0.78</td><td><strong>0.9453</strong></td><td>충족</td><td>5.2</td></tr><tr><td>Test KS</td><td>≥ 0.28</td><td><strong>0.7502</strong></td><td>충족</td><td>5.2</td></tr><tr><td>PSI (train ↔ test)</td><td>&lt; 0.1</td><td><strong>0.0005</strong></td><td>충족</td><td>5.2</td></tr><tr><td>씬파일러 AUC 향상</td><td>≥ +0.03</td><td><strong>+0.1518</strong></td><td>충족</td><td>5.4</td></tr><tr><td>ANOVA 유의성</td><td>최소 1개 검증에서 p &lt; 0.05</td><td><strong>2개 모두</strong> (p = 9.64 × 10⁻⁶³, 1.68 × 10⁻⁴²)</td><td>충족</td><td>8</td></tr><tr><td>거절 사유</td><td>3가지 이상</td><td><strong>Top 5</strong></td><td>충족</td><td>6.5</td></tr><tr><td><code>/predict</code> 응답 시간</td><td>≤ 2초</td><td><strong>평균 20.3ms</strong></td><td>충족</td><td>2.3</td></tr><tr><td>공정성 판정 기준</td><td>DI 0.8 ~ 1.25, EO 차이 ≤ 0.10</td><td>완화 전 <code>age_group</code> <strong>위반</strong> (min/max DI 0.7747, FPR 차이 0.1487) → 완화 후 전부 충족</td><td>완화로 충족</td><td>7.2, 7.4</td></tr><tr><td>단위 테스트</td><td>10개 이상, 80% 이상 통과</td><td><strong>171개, 100% 통과</strong></td><td>충족</td><td>부록 D</td></tr></tbody></table>
+<p class="note">각주: 챔피언 <code>xgboost | combined | class_weight</code>, <code>bias_ratio = 0.3</code>, test 22,500행, 승인 임계값 0.30. 응답 시간은 FastAPI TestClient 로 단일 요청 50회를 측정한 평균이다(12세션 측정). 공정성 판정 기준은 명세의 목표값이 아니라 판정 임계값이며, 완화 전 위반이 7장의 핵심 발견이다.</p>
+<p>성능 목표는 모두 여유 있게 넘었다. 그러나 목표를 넘은 것 자체는 이 리포트의 주장이 아니다. 4장에서 보듯 명세의 상관 요건만으로도 AUC 0.94 가 나오기 때문이다. 이 리포트가 주장하는 것은 그 성능이 <strong>누구에게서</strong> 나오는지(Q1), 그 판단을 <strong>어떻게</strong> 설명할 수 있는지(Q2), 그리고 그 과정에서 <strong>누가</strong> 불리해지는지(Q3)다.</p>
+<hr>
+<h2 id="02_problem-h9">이 장의 결론</h2>
+<ol><li><strong>씬파일러는 위험해서가 아니라 정보가 없어서 불리하다.</strong> 전통 피처 모델의 AUC 가 일반 고객 0.8548, 씬파일러 0.7831, <code>both</code> 유형 0.7417 로 정보 결손에 따라 떨어진다.</li><li><strong>대안 데이터는 해법이지만 설명할 수 없는 판단과 보이지 않는 차별이라는 두 위험을 들여온다.</strong> 그래서 성능 · 설명가능성 · 공정성을 세 질문(Q1~Q3)으로 함께 검증한다.</li><li><strong>시뮬레이션은 절대 수치를 잃는 대신 편향의 경로를 분리할 수 있게 한다.</strong> 명세의 성능 목표는 모두 충족했지만, 이 리포트의 결론은 상대 비교와 메커니즘으로 읽어야 한다.</li></ol></section>
+<section class="chapter" id="03_system"><h1 id="03_system-h0">2. 시스템 개요</h1>
+<p>이 장은 1장의 세 질문을 검증하는 시스템이 어떻게 구성돼 있는지를 한눈에 정리한다. 세부 구현은 각 장과 부록 B(API 명세) · C(재현 절차)에 있다.</p>
+<hr>
+<h2 id="03_system-h1">2.1 아키텍처</h2>
+<pre><code>                               docker compose up
+ +---------------------+    HTTP (API_BASE_URL)    +----------------------+
+ |  dashboard  :8501   | ------------------------&gt; |      api  :8000      |
+ |  Streamlit, 5 tabs  |  /predict /explain /...   |  FastAPI, 7 routes   |
+ |  (no model files)   |                           |  load once at start  |
+ +---------------------+                           +----------+-----------+
+                                                              | read
+ +---------------------+          read             +----------v-----------+
+ |   mlflow  :5000     | &lt;---- mlflow.db, mlruns/  |  models/             |
+ |  runs + Registry    |                           |  data/processed/     |
+ +---------------------+                           +----------^-----------+
+                                                              | write (once)
+                                                   +----------+-----------+
+                                                   |  bootstrap (profile) |
+                                                   |  scripts/bootstrap.sh|
+                                                   +----------------------+</code></pre>
+<p>네 서비스는 같은 이미지(<code>python:3.12-slim</code>)를 쓰고 <code>command</code> 로 역할만 나눈다. 프로젝트 루트를 컨테이너에 바인드 마운트하므로 학습 산출물은 호스트에 한 번 만들어 두고 재사용한다.</p>
+<p><strong>대시보드는 모델 파일을 읽지 않는다.</strong> 모든 추론과 지표 조회는 API 를 HTTP 로 호출한다(명세 §7 MSA 제약). 이 제약은 문서가 아니라 테스트로 강제한다. 대시보드 코드의 import 를 AST 로 검사해 모델 라이브러리와 <code>joblib</code> · <code>pickle</code> 로드가 없음을 확인한다(<code>tests/test_dashboard.py</code>).</p>
+<hr>
+<h2 id="03_system-h2">2.2 파이프라인</h2>
+<p><code>scripts/bootstrap.sh</code> 가 클론 직후의 저장소에서 모든 산출물을 만든다. 이미 있는 산출물은 건너뛴다.</p>
+<table><thead><tr><th>단계</th><th>모듈</th><th>산출물</th><th>장</th></tr></thead><tbody><tr><td>1 데이터 확보</td><td><code>curl</code> (공개 미러)</td><td><code>data/raw/cs-training.csv</code></td><td>3</td></tr><tr><td>2 시뮬레이션 + 전처리</td><td><code>src.data.run_preprocess</code></td><td><code>data/processed/{train,valid,test}.parquet</code>, <code>preprocessor.joblib</code></td><td>3, 4</td></tr><tr><td>3 학습</td><td><code>src.models.train</code></td><td><code>models/*.pkl</code>, <code>model_results.csv</code>, <code>fold_auc.csv</code>, MLflow run 18개</td><td>5</td></tr><tr><td>4 uplift + ANOVA</td><td><code>src.models.train --uplift-only</code>, <code>src.statistics.anova</code></td><td><code>thin_filer_uplift.csv</code>, <code>anova_results.json</code></td><td>5, 8</td></tr><tr><td>5 SHAP + 공정성</td><td><code>src.explainer.run_explain</code>, <code>src.fairness.run_fairness</code></td><td><code>explain/</code>, <code>fairness/</code></td><td>6, 7</td></tr><tr><td>6 리포트 자료</td><td><code>src.models.report_assets</code></td><td><code>docs/report_assets/*.png</code></td><td>5, 8</td></tr></tbody></table>
+<p class="note">각주: 학습 단계는 18조합 × 20 fold = 360 fits 에 최종 학습 18 fits 를 더해 616.4초가 걸렸다(5.1절). EDA 그림(<code>src.analysis.eda</code>)과 <code>bias_ratio</code> 민감도(<code>src.fairness.sensitivity</code>)는 데이터를 여러 번 재생성하므로 부트스트랩에 넣지 않고 별도로 실행한다.</p>
+<p>API 는 이 산출물을 <strong>기동 시 한 번</strong> 읽고, 공정성 · ANOVA · 지표 응답은 사전 계산 결과를 그대로 서빙한다. 요청마다 재계산하지 않으므로 응답이 결정론적이다. 대신 재학습 뒤 분석 단계를 다시 돌리지 않으면 낡은 결과를 서빙한다(9장 #4).</p>
+<hr>
+<h2 id="03_system-h3">2.3 서비스</h2>
+<table><thead><tr><th>서비스</th><th style="text-align:right">포트</th><th>역할</th><th>주요 사항</th></tr></thead><tbody><tr><td><strong>api</strong></td><td style="text-align:right">8000</td><td>심사 · 설명 · 분석 결과 서빙</td><td>7개 엔드포인트, Pydantic 스키마, Swagger <code>/docs</code>. <code>/predict</code> 평균 <strong>20.3ms</strong>, <code>/explain</code> 평균 36.9ms</td></tr><tr><td><strong>dashboard</strong></td><td style="text-align:right">8501</td><td>심사역용 UI</td><td>탭 5개: 고객 심사 · XAI 분석 · 공정성 · 모델 성능 · 통계 검증. 위험도 색상(저 #2E7D32 / 중 #F9A825 / 고 #C62828)</td></tr><tr><td><strong>mlflow</strong></td><td style="text-align:right">5000</td><td>실험 추적</td><td>SQLite 백엔드, run 18개, Registry <code>credit-scoring-champion</code> (alias <code>champion</code>, tag <code>stage=Production</code>)</td></tr><tr><td>bootstrap</td><td style="text-align:right">—</td><td>산출물 생성</td><td><code>setup</code> 프로파일. <code>docker compose up</code> 에서는 실행되지 않는다</td></tr></tbody></table>
+<p class="note">각주: 응답 시간은 FastAPI TestClient 단일 요청 50회(<code>/predict</code>) · 20회(<code>/explain</code>) 평균, 12세션 측정.</p>
+<p>API 가 산출물 없이 기동되면 <code>/health</code> 가 <code>degraded</code> 를 반환하고, 대시보드는 크래시 없이 실행 방법을 안내한다.</p>
+<hr>
+<h2 id="03_system-h4">2.4 모듈 구성</h2>
+<table><thead><tr><th>모듈</th><th>주요 파일</th><th style="text-align:right">줄 수</th><th>역할</th></tr></thead><tbody><tr><td><code>src/data/</code></td><td><code>loader</code>, <code>simulator</code>, <code>preprocessor</code>, <code>run_preprocess</code></td><td style="text-align:right">763</td><td>GMSC 로드, 대안 데이터 · 씬파일러 · 보호 속성 합성, 전처리 · 분할</td></tr><tr><td><code>src/models/</code></td><td><code>train</code>, <code>evaluate</code>, <code>report_assets</code></td><td style="text-align:right">798</td><td>18조합 학습 · CV · MLflow, AUC · KS · PSI, uplift</td></tr><tr><td><code>src/explainer/</code></td><td><code>explainer</code>, <code>run_explain</code></td><td style="text-align:right">618</td><td>SHAP 전역 · 지역 해석, 거절 사유 자연어 생성</td></tr><tr><td><code>src/fairness/</code></td><td><code>metrics</code>, <code>mitigation</code>, <code>run_fairness</code>, <code>sensitivity</code></td><td style="text-align:right">739</td><td>DI · EO, ThresholdOptimizer, <code>bias_ratio</code> 민감도</td></tr><tr><td><code>src/statistics/</code></td><td><code>anova</code></td><td style="text-align:right">288</td><td>One-way ANOVA, Tukey HSD, 가정 진단</td></tr><tr><td><code>src/api/</code></td><td><code>main</code>, <code>schemas</code></td><td style="text-align:right">608</td><td>FastAPI 서버</td></tr><tr><td><code>src/dashboard/</code></td><td><code>app</code>, <code>api_client</code></td><td style="text-align:right">595</td><td>Streamlit 대시보드, HTTP 클라이언트</td></tr><tr><td><code>src/analysis/</code></td><td><code>eda</code></td><td style="text-align:right">513</td><td>EDA 그림</td></tr><tr><td><code>src/config.py</code></td><td>—</td><td style="text-align:right">42</td><td>설정 로딩 · 경로 해석의 유일한 진입점</td></tr><tr><td><strong>합계</strong></td><td></td><td style="text-align:right"><strong>4,964</strong></td><td></td></tr></tbody></table>
+<p class="note">각주: <code>__init__.py</code> 포함, 빈 줄 · 주석 포함 줄 수. 테스트는 별도로 171개(부록 D).</p>
+<hr>
+<h2 id="03_system-h5">2.5 기술 스택</h2>
+<table><thead><tr><th>영역</th><th>라이브러리 (버전)</th></tr></thead><tbody><tr><td>런타임</td><td>Python 3.12, Docker · Docker Compose</td></tr><tr><td>데이터</td><td>pandas 3.0.5, numpy 2.5.3, scipy 1.18.1</td></tr><tr><td>모델링</td><td>scikit-learn 1.9.0, XGBoost 3.4.1, LightGBM 4.7.0, imbalanced-learn 0.14.2</td></tr><tr><td>설명가능성 · 공정성</td><td>SHAP 0.52.0, Fairlearn 0.14.0</td></tr><tr><td>통계</td><td>statsmodels 0.15.0</td></tr><tr><td>실험 추적</td><td>MLflow 3.16.0</td></tr><tr><td>서빙 · UI</td><td>FastAPI 0.141.1, uvicorn 0.52.4, Pydantic 2.13.5, Streamlit 1.63.0</td></tr><tr><td>테스트</td><td>pytest 9.1.1</td></tr></tbody></table>
+<p class="note">각주: <code>requirements.txt</code> 에 버전 고정, 전이 의존성 전체는 <code>requirements.lock</code>.</p>
+<p>공정성 라이브러리는 <strong>Fairlearn 하나만</strong> 쓴다. 명세는 AIF360 도 허용하지만 Python 3.12 를 지원하지 않는다.</p>
+<hr>
+<h2 id="03_system-h6">2.6 설계 원칙</h2>
+<table><thead><tr><th>원칙</th><th>구현</th><th>이유</th></tr></thead><tbody><tr><td>설정의 단일 출처</td><td>임계값 · 비율 · 포트 · <code>random_state</code> · 하이퍼파라미터를 <code>config/config.yaml</code> 에만 둔다</td><td>5~7장의 수치가 하나의 설정 위에서 정합돼야 한다. 임계값 0.30 하나가 공정성 결과 전체와 연동된다(10.3절)</td></tr><tr><td>상대 경로</td><td>모든 경로는 프로젝트 루트 기준, <code>src/config.py</code> 가 해석</td><td>호스트와 컨테이너에서 같은 설정이 동작한다</td></tr><tr><td>결정 기록</td><td>설계 결정 12건을 ADR 로 남기고, 개정 시 버전 표를 갱신</td><td>결정이 뒤집힌 이유를 추적할 수 있어야 한다(부록 A)</td></tr><tr><td>테스트 라벨 격리</td><td>test 라벨은 평가에만. 임계값 조정은 valid 로</td><td>명세 §7. 공정성 완화의 전/후 비교가 유효하려면 필수</td></tr><tr><td>보호 속성 격리</td><td>학습 X 는 <code>features.traditional</code> + <code>features.alternative</code> 로만 구성</td><td>간접 편향을 관측하려면 직접 경로를 막아야 한다(ADR-008, 7.1절)</td></tr></tbody></table>
+<hr>
+<h2 id="03_system-h7">이 장의 결론</h2>
+<ol><li><strong>네 서비스가 한 이미지를 공유하고, 산출물은 볼륨으로 주고받는다.</strong> 대시보드 → API → 산출물의 단방향 구조이며, 대시보드의 모델 파일 미로드는 AST 검사 테스트로 강제한다.</li><li><strong>부트스트랩 6단계가 클론 직후 저장소에서 모든 분석 산출물을 만든다.</strong> API 는 이를 기동 시 한 번 읽어 서빙하므로 응답은 빠르고(<code>/predict</code> 20.3ms) 결정론적이지만, 재학습 후 분석 재실행을 빠뜨리면 낡은 결과를 낸다.</li><li><strong>모든 설정값을 <code>config.yaml</code> 한 곳에 둔 것이 수치 정합성의 기반이다.</strong> 소스 4,964줄, 테스트 171개, ADR 12건으로 구성된다.</li></ol></section>
+<section class="chapter" id="04_data_eda"><h1 id="04_data_eda-h0">3. 데이터와 EDA</h1>
+<p>이 장은 모델이 보는 데이터가 <strong>무엇이고 어떤 모양인지</strong>를 정리한다. 원본 GMSC 에서 온 것과 시뮬레이터가 만든 것을 구분해서 본다. 둘을 섞어 읽으면 "대안 데이터가 강하다"는 관찰이 실제 데이터의 성질인지 설계의 결과인지 구분할 수 없기 때문이다.</p>
+<p>관련 설계 결정: <a href="decisions/ADR-006-main-dataset.md">ADR-006</a>(메인 데이터셋), <a href="decisions/ADR-007-age-filter.md">ADR-007</a>(연령 필터), <a href="decisions/ADR-009-credit-history-months.md">ADR-009</a> · <a href="decisions/ADR-010-thin-filer-types.md">ADR-010</a>(씬파일러)</p>
+<blockquote><p><strong>이 장의 공통 측정 조건.</strong> GMSC <code>cs-training.csv</code> 에 ADR-007 필터를 적용한 <strong>149,999행</strong>. 대안 데이터·씬파일러·보호 속성은 최종 설정(<code>bias_ratio = 0.3</code>, <code>thin_filer_ratio = 0.30</code>, <code>random_state = 42</code>)의 시뮬레이션 결과이며, 동결된 <code>data/processed/</code> 와 같은 값이다. 그림은 <code>src/analysis/eda.py</code> 가 생성한다. 이 장의 z 값은 표본 표준편차 기준이다.</p></blockquote>
+<hr>
+<h2 id="04_data_eda-h1">3.1 데이터셋</h2>
+<p>기본 데이터셋은 Kaggle <strong>Give Me Some Credit (GMSC)</strong> 이다. 150,000행에 타겟 1개와 피처 10개가 있다. German Credit 은 1,000건이라 반복 CV 와 공정성 하위 집단 분석을 감당하지 못해 메인에서 제외했다(ADR-006).</p>
+<table><thead><tr><th>피처</th><th>한글명</th><th>성격</th></tr></thead><tbody><tr><td><code>RevolvingUtilizationOfUnsecuredLines</code></td><td>무담보 신용한도 소진율</td><td>비율 (이론상 0~1)</td></tr><tr><td><code>age</code></td><td>연령</td><td>연속</td></tr><tr><td><code>NumberOfTime30-59DaysPastDueNotWorse</code></td><td>30-59일 연체 횟수</td><td>횟수</td></tr><tr><td><code>NumberOfTime60-89DaysPastDueNotWorse</code></td><td>60-89일 연체 횟수</td><td>횟수</td></tr><tr><td><code>NumberOfTimes90DaysLate</code></td><td>90일 이상 연체 횟수</td><td>횟수</td></tr><tr><td><code>DebtRatio</code></td><td>부채비율</td><td>비율</td></tr><tr><td><code>MonthlyIncome</code></td><td>월 소득</td><td>금액</td></tr><tr><td><code>NumberOfOpenCreditLinesAndLoans</code></td><td>보유 신용계좌 수</td><td>횟수</td></tr><tr><td><code>NumberRealEstateLoansOrLines</code></td><td>부동산 담보대출 건수</td><td>횟수</td></tr><tr><td><code>NumberOfDependents</code></td><td>부양가족 수</td><td>횟수</td></tr><tr><td><strong><code>SeriousDlqin2yrs</code></strong></td><td><strong>2년 내 90일 이상 연체 (타겟)</strong></td><td>이진</td></tr></tbody></table>
+<h3 id="04_data_eda-h2">연령 필터 (ADR-007)</h3>
+<p>원본 <code>age</code> 의 최솟값은 <strong>0</strong> 이다(1행). 실제 연령이 아니라 입력 오류이고, 보호 속성 <code>age_group</code> (20-34 / 35-54 / 55+) 어디에도 배정할 수 없다. 중앙값으로 채우면 가짜 연령이 공정성 분석 집단에 섞이므로 <strong>제거</strong>했다. 제거 후 149,999행, 최소 연령은 21세다.</p>
+<hr>
+<h2 id="04_data_eda-h3">3.2 타겟: 부도율 6.68%</h2>
+<figure><img src="report_assets/eda_target_distribution.png" alt="타겟 분포"><figcaption>타겟 분포</figcaption></figure>
+<table><thead><tr><th>클래스</th><th style="text-align:right">행</th><th style="text-align:right">비율</th></tr></thead><tbody><tr><td>비부도 (0)</td><td style="text-align:right">139,973</td><td style="text-align:right">93.32%</td></tr><tr><td><strong>부도 (1)</strong></td><td style="text-align:right"><strong>10,026</strong></td><td style="text-align:right"><strong>6.68%</strong></td></tr></tbody></table>
+<p>부도 1건당 비부도가 약 14건이다. 이 불균형이 이후 결정 세 가지를 만들었다.</p>
+<table><thead><tr><th>결정</th><th>이유</th><th>장</th></tr></thead><tbody><tr><td>층화 분할 (<code>stratify=y</code>)</td><td>무작위 분할이면 세트마다 부도율이 흔들린다</td><td>3.8</td></tr><tr><td><code>class_weight</code> / SMOTE 비교</td><td>가중 없이 학습하면 소수 클래스를 무시한다</td><td>5.5</td></tr><tr><td>승인 임계값 0.30</td><td>0.5 에서는 재현율이 거의 0 에 수렴한다</td><td>5.6, ADR-003</td></tr></tbody></table>
+<p>또 하나, 이 부도율은 <strong>명세의 상관 요건을 해석하는 기준</strong>이 된다. 부도율 6.68% 인 이진 타겟과의 점이연상관 0.30 은 단일 변수로 AUC 0.81 을 주는 매우 강한 조건이다(4.3절).</p>
+<hr>
+<h2 id="04_data_eda-h4">3.3 결측: 원래 있던 것과 만든 것</h2>
+<figure><img src="report_assets/eda_missing_pattern.png" alt="결측 패턴"><figcaption>결측 패턴</figcaption></figure>
+<table><thead><tr><th>컬럼</th><th style="text-align:right">결측률</th><th>출처</th><th>처리</th></tr></thead><tbody><tr><td><code>MonthlyIncome</code></td><td style="text-align:right">19.82%</td><td>GMSC 원본</td><td>train 중앙값 대체</td></tr><tr><td><code>NumberOfDependents</code></td><td style="text-align:right">2.62%</td><td>GMSC 원본</td><td>train 중앙값 대체</td></tr><tr><td>연체 3컬럼 (각각)</td><td style="text-align:right"><strong>20.98%</strong></td><td><strong>시뮬레이터</strong> (씬파일러 <code>missing_only</code> + <code>both</code>)</td><td>센티넬 −1 + 결측 플래그</td></tr></tbody></table>
+<p>두 종류의 결측은 <strong>의미가 다르기 때문에 다르게 처리했다.</strong></p>
+<p>원본 결측은 입력되지 않은 값이다. 중앙값으로 채워도 정보가 크게 왜곡되지 않는다. 반면 연체 3컬럼의 결측은 <strong>"이 사람에게는 연체 기록이라는 것이 없다"는 사실 자체</strong>이며, 씬파일러를 정의하는 신호다. 중앙값(0회)으로 채우면 기록이 없는 고객이 연체 한 번 없는 우량 고객으로 위장된다. 그래서 센티넬 −1 과 <code>*_is_missing</code> 플래그로 보존했다. 이 결정은 6.6절의 설명 생성까지 따라간다.</p>
+<h3 id="04_data_eda-h5">소득 결측 행의 부채비율은 비율이 아니다</h3>
+<table><thead><tr><th>구분</th><th style="text-align:right"><code>DebtRatio</code> 중앙값</th><th style="text-align:right">부도율</th></tr></thead><tbody><tr><td><code>MonthlyIncome</code> 있음</td><td style="text-align:right">0.296</td><td style="text-align:right">6.95%</td></tr><tr><td><code>MonthlyIncome</code> 결측</td><td style="text-align:right"><strong>1,159</strong></td><td style="text-align:right">5.61%</td></tr></tbody></table>
+<p>소득이 결측인 행에서 부채비율 중앙값이 1,159 로 뛴다. 분모인 소득이 없어 비율 대신 부채 금액이 기록된 것으로 보인다. 3.4절의 <code>DebtRatio</code> 극단값 대부분이 여기서 온다. 트리 모델은 이 불연속을 분기로 흡수할 수 있지만, 선형 모델에는 불리한 구조다.</p>
+<hr>
+<h2 id="04_data_eda-h6">3.4 분포와 이상치</h2>
+<figure><img src="report_assets/eda_feature_distributions.png" alt="피처 분포"><figcaption>피처 분포</figcaption></figure>
+<p>위 행은 전통 피처(99 백분위에서 잘라 그림), 아래 행은 대안 피처를 클래스별로 겹쳐 그렸다.</p>
+<table><thead><tr><th>피처</th><th style="text-align:right">중앙값</th><th style="text-align:right">99 백분위</th><th style="text-align:right">최댓값</th><th style="text-align:right">최대 z</th></tr></thead><tbody><tr><td><code>RevolvingUtilizationOfUnsecuredLines</code></td><td style="text-align:right">0.154</td><td style="text-align:right">1.09</td><td style="text-align:right"><strong>50,708</strong></td><td style="text-align:right"><strong>203.0</strong></td></tr><tr><td><code>DebtRatio</code></td><td style="text-align:right">0.367</td><td style="text-align:right">4,979</td><td style="text-align:right"><strong>329,664</strong></td><td style="text-align:right"><strong>161.6</strong></td></tr><tr><td><code>MonthlyIncome</code> (결측 제외)</td><td style="text-align:right">5,400</td><td style="text-align:right">25,000</td><td style="text-align:right">3,008,750</td><td style="text-align:right">208.7</td></tr><tr><td><code>age</code></td><td style="text-align:right">52</td><td style="text-align:right">87</td><td style="text-align:right">109</td><td style="text-align:right">3.8</td></tr><tr><td><code>NumberOfOpenCreditLinesAndLoans</code></td><td style="text-align:right">8</td><td style="text-align:right">24</td><td style="text-align:right">58</td><td style="text-align:right">9.6</td></tr><tr><td><code>NumberOfTimes90DaysLate</code></td><td style="text-align:right">0</td><td style="text-align:right">3</td><td style="text-align:right">98</td><td style="text-align:right">23.4</td></tr></tbody></table>
+<p class="note">각주: 149,999행, 결측 행은 해당 피처 계산에서 제외. z = (최댓값 − 평균) / 표본 표준편차.</p>
+<p>전통 피처는 실제 금융 데이터답게 <strong>꼬리가 매우 두껍다.</strong> 이상치는 제거하지 않았다. 트리 모델은 순위만 쓰므로 극단값에 강건하고, 이상치 행 자체가 위험 신호를 담고 있기 때문이다.</p>
+<h3 id="04_data_eda-h7">소진율: 피어슨 상관이 관계를 숨긴다</h3>
+<table><thead><tr><th>지표</th><th style="text-align:right">값</th></tr></thead><tbody><tr><td>소진율 &gt; 1 인 행</td><td style="text-align:right">2.21%</td></tr><tr><td>부도율 (소진율 &gt; 1)</td><td style="text-align:right"><strong>37.25%</strong></td></tr><tr><td>부도율 (소진율 ≤ 1)</td><td style="text-align:right">5.99%</td></tr><tr><td>타겟과의 피어슨 상관</td><td style="text-align:right"><strong>−0.002</strong></td></tr><tr><td>타겟과의 스피어만 상관</td><td style="text-align:right"><strong>+0.240</strong></td></tr></tbody></table>
+<p>한도를 넘겨 쓴 고객의 부도율은 6배다. 그런데 피어슨 상관은 사실상 0 이다. 최댓값 50,708 같은 극단값이 선형 상관을 무너뜨리기 때문이다. 순위 상관으로는 +0.240 으로 전통 피처 중 가장 강한 편이다. <strong>이 피처가 SHAP 전역 중요도 3위(6.2절)인 것과 피어슨 상관 0 인 것은 모순이 아니다.</strong> 같은 이유로 6.3절의 Dependence Plot 은 x 축을 99 백분위에서 잘라야 했다.</p>
+<h3 id="04_data_eda-h8">연체 코드 96 / 98</h3>
+<table><thead><tr><th>항목</th><th style="text-align:right">값</th></tr></thead><tbody><tr><td>연체 3컬럼에 96 또는 98 이 기록된 행</td><td style="text-align:right">269 (세 컬럼 모두 같은 행)</td></tr><tr><td>이 행들의 부도율</td><td style="text-align:right"><strong>54.65%</strong></td></tr><tr><td>30-59일 vs 90일 연체 상관 (전체)</td><td style="text-align:right">0.984</td></tr><tr><td>30-59일 vs 90일 연체 상관 (269행 제외)</td><td style="text-align:right"><strong>0.218</strong></td></tr></tbody></table>
+<p>GMSC 에는 연체 횟수로 불가능한 값 96, 98 이 269행에 있다. 실제 횟수가 아니라 특수 코드로 보인다. 이 269행이 연체 컬럼 간 상관을 0.98~0.99 로 끌어올린다. 제외하면 0.22~0.31 이다. 아래 상관행렬의 연체 3컬럼 블록은 이 코드의 영향을 받은 값으로 읽어야 한다.</p>
+<p><strong>이 코드는 별도로 처리하지 않았다.</strong> 트리 모델은 "96 이상"을 하나의 분기로 분리할 수 있고, 부도율 54.65% 라는 강한 신호를 담고 있어서다. 다만 선형 모델과 표준화에는 왜곡 요인으로 남는다.</p>
+<hr>
+<h2 id="04_data_eda-h9">3.5 대안 데이터 (시뮬레이션)</h2>
+<p>대안 피처 5개는 원본에 없고 시뮬레이터가 만들었다(4장). 여기서는 결과물의 모양만 본다.</p>
+<table><thead><tr><th>피처</th><th>범위</th><th style="text-align:right">평균</th><th style="text-align:right">평균 (비부도)</th><th style="text-align:right">평균 (부도)</th><th style="text-align:right">타겟 |corr|</th></tr></thead><tbody><tr><td><code>telecom_payment_rate</code></td><td>0.42 ~ 1.00</td><td style="text-align:right">0.747</td><td style="text-align:right">0.758</td><td style="text-align:right">0.592</td><td style="text-align:right">0.3195</td></tr><tr><td><code>utility_payment_rate</code></td><td>0.42 ~ 1.00</td><td style="text-align:right">0.747</td><td style="text-align:right">0.757</td><td style="text-align:right">0.596</td><td style="text-align:right">0.3107</td></tr><tr><td><code>spending_consistency</code></td><td>0.00 ~ 1.00</td><td style="text-align:right">0.508</td><td style="text-align:right">0.533</td><td style="text-align:right">0.160</td><td style="text-align:right">0.3291</td></tr><tr><td><code>regular_payment_count</code></td><td>1 ~ 24</td><td style="text-align:right">12.68</td><td style="text-align:right">13.23</td><td style="text-align:right">4.89</td><td style="text-align:right">0.3194</td></tr><tr><td><code>app_login_frequency</code></td><td>0 ~ 40</td><td style="text-align:right">20.29</td><td style="text-align:right">21.23</td><td style="text-align:right">7.17</td><td style="text-align:right">0.3094</td></tr></tbody></table>
+<p class="note">각주: 149,999행, 피어슨 상관 절댓값. train 만으로 잰 값은 10.2절 표 참조.</p>
+<p>다섯 개 모두 명세 §4 의 0.3 ~ 0.5 범위에 든다. 3.4절 피처 분포 그림의 아래 행에서 부도(빨강)와 비부도(파랑)가 뚜렷이 갈리는 것이 보인다. 전통 피처의 타겟 상관(피어슨)이 최대 0.128(30-59일 연체)인 것과 대비된다. 이 차이가 5장에서 <code>alternative_only</code> 가 <code>traditional_only</code> 를 앞서는 이유이며, 실제 대안 데이터의 예측력이 아니라 <strong>명세 요건의 결과</strong>다.</p>
+<h3 id="04_data_eda-h10">상관 구조</h3>
+<figure><img src="report_assets/eda_correlation_matrix.png" alt="상관행렬"><figcaption>상관행렬</figcaption></figure>
+<table><thead><tr><th>블록</th><th>상관</th><th>해석</th></tr></thead><tbody><tr><td>대안 ↔ 대안</td><td><strong>0.667 ~ 0.794</strong> (평균 0.698)</td><td>공유 잠재요인 "성실성" (ADR-001 v2, 4.4절)</td></tr><tr><td>대안 ↔ <code>age</code></td><td>0.33 (통신·공과금) / 0.22 (나머지 셋)</td><td>생성식의 연령 신호 + 20-34 편향 주입</td></tr><tr><td>대안 ↔ <code>MonthlyIncome</code></td><td>0.10 ~ 0.11 (<code>log1p</code> 소득과는 0.32)</td><td>생성식의 소득 신호. 생성식이 <code>log1p(소득)</code> 을 써서 원 단위 상관은 낮게 나온다</td></tr><tr><td>연체 ↔ 연체</td><td>0.98 ~ 0.99</td><td>96/98 코드 269행의 영향 (3.4절)</td></tr><tr><td>그 밖의 전통 ↔ 전통</td><td>대부분 |r| &lt; 0.15</td><td>계좌 수 ↔ 부동산 대출 0.40 이 최대</td></tr></tbody></table>
+<p><strong>대안 피처와 연령의 상관이 두 층으로 갈린다.</strong> 통신비·공과금 납부율은 0.33, 나머지 셋은 0.22 다. 앞의 두 피처에만 <strong>20-34 집단 하향 편향</strong>(ADR-002)이 주입됐기 때문이다. 편향을 주입하지 않고 (<code>bias_ratio = 0</code>) 같은 시뮬레이션을 돌리면 다섯 피처 모두 0.22 로 같아진다. 7.3절에서 본 연령대 격차의 두 원천(생성식의 연령 신호, 주입 편향)이 상관행렬에 이미 드러나 있다.</p>
+<hr>
+<h2 id="04_data_eda-h11">3.6 씬파일러</h2>
+<p>명세 §4 의 정의는 <strong>연체 관련 컬럼 2개 이상 결측 OR 신용카드 거래 이력 12개월 미만</strong>이다. GMSC 에는 거래 이력 컬럼이 없어 <code>credit_history_months</code> 를 합성했다(ADR-009).</p>
+<table><thead><tr><th>판정 조건</th><th style="text-align:right">행</th></tr></thead><tbody><tr><td>연체 컬럼 2개 이상 결측</td><td style="text-align:right">31,471</td></tr><tr><td>거래 이력 12개월 미만</td><td style="text-align:right">27,121</td></tr><tr><td>교집합 (둘 다)</td><td style="text-align:right">13,592</td></tr><tr><td><strong>합집합 = 씬파일러</strong></td><td style="text-align:right"><strong>45,000 (30.0%)</strong></td></tr></tbody></table>
+<p>두 조건이 서로 다른 집합을 잡아내므로 OR 정의가 실제로 작동한다. 초기 구현에서는 교집합 = 합집합 = 45,000 이라 정의가 형해화돼 있었다(4.6절, ADR-010).</p>
+<figure><img src="report_assets/eda_thin_filer_types.png" alt="씬파일러 구성과 프로파일"><figcaption>씬파일러 구성과 프로파일</figcaption></figure>
+<table><thead><tr><th>유형</th><th style="text-align:right">행</th><th style="text-align:right">씬파일러 중 비율</th><th>연체 3컬럼</th><th>거래 이력 (평균)</th></tr></thead><tbody><tr><td>일반</td><td style="text-align:right">104,999</td><td style="text-align:right">—</td><td>관측</td><td>12~120개월 (66.0)</td></tr><tr><td><code>missing_only</code></td><td style="text-align:right">17,879</td><td style="text-align:right">39.7%</td><td>결측</td><td>12~120개월 (66.2)</td></tr><tr><td><code>history_only</code></td><td style="text-align:right">13,529</td><td style="text-align:right">30.1%</td><td>관측</td><td>3~11개월 (7.0)</td></tr><tr><td><code>both</code></td><td style="text-align:right">13,592</td><td style="text-align:right">30.2%</td><td>결측</td><td>3~11개월 (7.0)</td></tr></tbody></table>
+<figure><img src="report_assets/eda_thin_filer_profile.png" alt="씬파일러 vs 일반 프로파일"><figcaption>씬파일러 vs 일반 프로파일</figcaption></figure>
+<table><thead><tr><th>피처 (표준화 평균)</th><th style="text-align:right">일반</th><th style="text-align:right">씬파일러</th></tr></thead><tbody><tr><td><code>credit_history_months</code></td><td style="text-align:right">+0.294</td><td style="text-align:right"><strong>−0.685</strong></td></tr><tr><td><code>RevolvingUtilization</code></td><td style="text-align:right">−0.005</td><td style="text-align:right">+0.011</td></tr><tr><td><code>NumberOfOpenCreditLinesAndLoans</code></td><td style="text-align:right">−0.009</td><td style="text-align:right">+0.021</td></tr><tr><td>그 밖의 전통 · 대안 피처</td><td style="text-align:right">|z| ≤ 0.005</td><td style="text-align:right">|z| ≤ 0.005</td></tr><tr><td>부도율</td><td style="text-align:right">6.66%</td><td style="text-align:right">6.74%</td></tr></tbody></table>
+<p><strong>씬파일러와 일반 고객은 정의 기준 말고는 거의 같다.</strong> 거래 이력만 크게 다르고, 소진율과 계좌 수의 미세한 차이는 씬파일러에게 주입한 노이즈(ADR-001)에서 온다. 부도율도 같다.</p>
+<p>이것은 의도한 설계다. 씬파일러를 소득·연령 조건으로 뽑으면 씬파일러 여부가 보호 속성과 얽혀 7장의 공정성 분석과 교란된다(ADR-001 "버린 대안"). 무작위로 뽑았기 때문에 5.4절의 uplift 차이는 <strong>"누가 씬파일러인가"가 아니라 "전통 정보가 얼마나 결손됐는가"</strong> 로만 설명된다.</p>
+<hr>
+<h2 id="04_data_eda-h12">3.7 보호 속성</h2>
+<figure><img src="report_assets/eda_demographics.png" alt="보호 속성 분포"><figcaption>보호 속성 분포</figcaption></figure>
+<table><thead><tr><th>속성</th><th>집단</th><th style="text-align:right">행</th><th style="text-align:right">실제 부도율</th></tr></thead><tbody><tr><td>gender (합성)</td><td>female</td><td style="text-align:right">75,152</td><td style="text-align:right">6.55%</td></tr><tr><td></td><td>male</td><td style="text-align:right">74,847</td><td style="text-align:right">6.82%</td></tr><tr><td>age_group (실제 <code>age</code> 구간화)</td><td>20-34</td><td style="text-align:right">19,239</td><td style="text-align:right"><strong>11.18%</strong></td></tr><tr><td></td><td>35-54</td><td style="text-align:right">65,339</td><td style="text-align:right">8.32%</td></tr><tr><td></td><td>55+</td><td style="text-align:right">65,421</td><td style="text-align:right"><strong>3.73%</strong></td></tr></tbody></table>
+<p>성별은 GMSC 에 없어 타겟과 독립인 무작위 50:50 으로 합성했다(ADR-002, 10.4절). 두 집단의 부도율이 사실상 같은 것은 그 때문이다.</p>
+<p><strong>연령대는 실제 부도율 자체가 다르다.</strong> 20-34 의 부도율은 55+ 의 3배다. 편향 주입은 피처만 바꾸고 타겟은 건드리지 않으므로(ADR-002) 이 차이는 GMSC 원본의 성질이다. 따라서 7장의 연령대 승인율 격차 (20-34 0.6789 vs 55+ 0.8764) 중 일부는 <strong>실제 위험 차이를 반영한 정당한 격차</strong>다. 승인율만 비교하는 DI Ratio 로는 이를 구분할 수 없고, 실제 라벨을 조건으로 오류율을 비교하는 <strong>Equalized Odds 를 함께 봐야 하는 이유</strong>가 여기에 있다(7.2절의 FPR 차이 0.1487).</p>
+<hr>
+<h2 id="04_data_eda-h13">3.8 전처리와 분할</h2>
+<table><thead><tr><th>단계</th><th>내용</th><th>근거</th></tr></thead><tbody><tr><td>① 필터</td><td><code>age &lt; 18</code> 1행 제거 → 149,999행</td><td>ADR-007</td></tr><tr><td>② 시뮬레이션</td><td>대안 5변수, 씬파일러(유형·결측·노이즈), 보호 속성, 거래 이력</td><td>ADR-001·002·009·010</td></tr><tr><td>③ 분할</td><td>train / valid / test = 70 : 15 : 15, <code>stratify=y</code>, <code>random_state=42</code></td><td>명세 §4</td></tr><tr><td>④ 결측 대체</td><td><code>MonthlyIncome</code> → 5,400, <code>NumberOfDependents</code> → 0 (<strong>train 중앙값</strong>)</td><td>3.3절</td></tr><tr><td>⑤ 연체 결측</td><td>센티넬 −1 + <code>*_is_missing</code> 플래그 3개</td><td>3.3절</td></tr><tr><td>⑥ 스케일링</td><td>수치형에 <code>StandardScaler</code> (<strong>train 에만 fit</strong>)</td><td>명세 §4</td></tr><tr><td>⑦ 인코딩</td><td>학습 피처에 범주형이 없어 One-Hot 대상 없음. 보호 속성은 인코딩하지 않고 원문 유지</td><td>ADR-008</td></tr></tbody></table>
+<table><thead><tr><th>세트</th><th style="text-align:right">행</th><th style="text-align:right">부도율</th></tr></thead><tbody><tr><td>train</td><td style="text-align:right">104,999</td><td style="text-align:right">6.6839%</td></tr><tr><td>valid</td><td style="text-align:right">22,500</td><td style="text-align:right">6.6844%</td></tr><tr><td>test</td><td style="text-align:right">22,500</td><td style="text-align:right">6.6844%</td></tr></tbody></table>
+<p class="note">각주: <code>data/processed/{train,valid,test}.parquet</code>. 각 24열 = 학습 피처 18 + 보호 속성 2 + 세그먼트 3 (<code>is_thin_filer</code>, <code>thin_filer_type</code>, <code>credit_history_months</code>) + 타겟 1.</p>
+<p>층화 덕분에 세 세트의 부도율 차이가 0.001%p 이내다. valid 는 ThresholdOptimizer 적합(7장)에만 쓰고, <strong>test 라벨은 학습·튜닝·임계값 선택 어디에도 쓰지 않았다</strong>(명세 §7).</p>
+<p>모델이 보는 18개 피처는 전통 10 + 결측 플래그 3 + 대안 5 다. 보호 속성과 세그먼트 컬럼 5개는 데이터에는 남지만 학습 입력에서 제외된다(ADR-008·009·010).</p>
+<hr>
+<h2 id="04_data_eda-h14">이 장의 결론</h2>
+<ol><li><strong>원본 GMSC 는 불균형(부도율 6.68%)하고 꼬리가 두꺼우며 특수 코드를 품고 있다.</strong> 소진율 최대 z=203.0, 부채비율 161.6, 연체 코드 96/98 이 269행. 소진율은 피어슨 상관 −0.002 지만 순위 상관은 +0.240 이다.</li><li><strong>결측은 출처에 따라 다르게 다뤘다.</strong> 원본 결측(소득 19.82%)은 중앙값 대체, 시뮬레이터가 만든 연체 결측 (20.98%)은 "기록 없음"이라는 씬파일러 신호로 보고 센티넬 + 플래그로 보존했다.</li><li><strong>설계로 통제한 것과 원래 있는 것을 구분했다.</strong> 씬파일러는 무작위 선정이라 정의 기준 외에는 일반 고객과 같고(부도율 6.74% vs 6.66%), 성별은 합성이다. 반면 연령대별 부도율(20-34 11.18% vs 55+ 3.73%)은 원본의 성질이라, 7장의 연령대 격차 일부는 실제 위험 차이다.</li></ol></section>
+<section class="chapter" id="05_simulator"><h1 id="05_simulator-h0">4. 방법론: 대안 데이터 시뮬레이터 설계와 진단</h1>
+<p>이 장은 본 프로젝트에서 가장 많은 설계 판단이 필요했던 부분을 다룬다. 대안 데이터를 시뮬레이션으로 만들어야 하는 과제에서, 처음 만든 시뮬레이터는 요구 규격을 모두 만족했지만 모델을 학습해보니 <strong>부도를 거의 완벽하게 예측</strong>했다. 이 장은 그 원인을 추적해 구조를 고치고, 남은 성능이 결함인지 아닌지를 판정한 과정을 기록한다.</p>
+<p>관련 설계 결정: <a href="decisions/ADR-001-simulator.md">ADR-001 v2</a>, <a href="decisions/ADR-009-credit-history-months.md">ADR-009</a>, <a href="decisions/ADR-010-thin-filer-types.md">ADR-010</a></p>
+<hr>
+<h2 id="05_simulator-h1">4.1 설계 목표와 제약</h2>
+<h3 id="05_simulator-h2">요구 규격</h3>
+<p>과제 명세(SPEC §4)는 시뮬레이터에 다음을 요구했다.</p>
+<table><thead><tr><th>요구사항</th><th>내용</th></tr></thead><tbody><tr><td>대안 변수 5개</td><td><code>telecom_payment_rate</code>, <code>utility_payment_rate</code>, <code>spending_consistency</code>, <code>regular_payment_count</code>, <code>app_login_frequency</code></td></tr><tr><td>타겟 상관</td><td>각 변수와 <code>SeriousDlqin2yrs</code> 의 상관계수가 <strong>0.3 ~ 0.5</strong></td></tr><tr><td><code>thin_filer_ratio</code></td><td>조정하면 씬파일러 비율이 변한다</td></tr><tr><td><code>bias_ratio</code></td><td>조정하면 성별·연령대별 승인율 편향이 변한다</td></tr></tbody></table>
+<h3 id="05_simulator-h3">설계 의도: 정보량을 구조적으로 줄인다</h3>
+<p>단순히 대안 변수 5개를 붙이는 것만으로는 이 프로젝트의 질문에 답할 수 없다. "대안 데이터가 씬파일러에게 도움이 되는가"를 검증하려면, <strong>씬파일러의 전통 피처가 실제로 쓸모없어야</strong> 한다. 그렇지 않으면 대안 데이터를 추가해 성능이 올라갔을 때 그것이 대안 데이터의 기여인지, 같은 정보를 두 번 넣은 결과인지 구분할 수 없다.</p>
+<p>그래서 ADR-001 은 씬파일러에게 두 가지를 적용했다.</p>
+<ul><li><strong>연체 3컬럼 결측 처리</strong>: <code>NumberOfTime30-59DaysPastDueNotWorse</code>, <code>NumberOfTime60-89DaysPastDueNotWorse</code>, <code>NumberOfTimes90DaysLate</code></li><li><strong>강한 노이즈 주입</strong>: <code>RevolvingUtilizationOfUnsecuredLines</code> (로그정규 배수), <code>NumberOfOpenCreditLinesAndLoans</code> (정수 이동)</li></ul>
+<p>씬파일러 선정은 <strong>무작위</strong>로 한다. 소득이나 연령을 조건으로 고르면 씬파일러 여부가 민감속성과 얽혀 7장의 편향 분석이 교란된다.</p>
+<h3 id="05_simulator-h4">생성 구조 (v1)</h3>
+<p>각 대안 변수를 다음과 같이 만들었다. <code>t_z</code> 는 표준화한 타겟이고, <code>nuisance</code> 는 소득·연령 신호다.</p>
+<pre><code>nuisance = 0.7 · z(log1p(MonthlyIncome)) + 0.3 · z(age)
+m_i      = standardize(0.6 · nuisance + 0.8 · eps_i)     eps_i 는 변수별 독립 노이즈
+m_i      ← m_i 에서 t_z 성분 제거 후 재표준화              (직교화)
+v_i      = rho_i · t_z + sqrt(1 - rho_i²) · m_i</code></pre>
+<p>직교화를 하면 <code>corr(v_i, t_z) = rho_i</code> 가 표본 기준으로 정확히 성립한다. 마지막으로 <code>v_i</code> 를 정규 CDF와 반올림으로 실제 단위(납부율 0.60~1.00, 결제 건수 1~24 등)로 옮기고, 변환 때문에 어긋난 상관을 고정점 반복으로 목표에 다시 맞췄다.</p>
+<p>목표 상관 <code>rho_i</code> 는 규격 범위 0.30~0.50 에 균등 배치했다.</p>
+<hr>
+<h2 id="05_simulator-h5">4.2 v1 구현과 문제 발견</h2>
+<h3 id="05_simulator-h6">개별 상관은 규격을 만족했다</h3>
+<table><thead><tr><th>변수</th><th style="text-align:right">|corr|</th><th>규격 0.30~0.50</th></tr></thead><tbody><tr><td><code>telecom_payment_rate</code></td><td style="text-align:right">0.4855</td><td>충족</td></tr><tr><td><code>utility_payment_rate</code></td><td style="text-align:right">0.4398</td><td>충족</td></tr><tr><td><code>spending_consistency</code></td><td style="text-align:right">0.3991</td><td>충족</td></tr><tr><td><code>regular_payment_count</code></td><td style="text-align:right">0.3504</td><td>충족</td></tr><tr><td><code>app_login_frequency</code></td><td style="text-align:right">0.3031</td><td>충족</td></tr></tbody></table>
+<h3 id="05_simulator-h7">그런데 모델이 부도를 거의 완벽하게 맞혔다</h3>
+<p>이 데이터로 18개 조합(알고리즘 3 × 피처그룹 3 × 불균형 처리 2)을 학습한 결과다.</p>
+<table><thead><tr><th>피처 그룹</th><th style="text-align:right">test AUC (LightGBM, class_weight)</th></tr></thead><tbody><tr><td><code>traditional_only</code></td><td style="text-align:right">0.8342</td></tr><tr><td><code>alternative_only</code></td><td style="text-align:right"><strong>0.9957</strong></td></tr><tr><td><code>combined</code></td><td style="text-align:right"><strong>0.9998</strong></td></tr></tbody></table>
+<p>씬파일러 집단의 AUC uplift 는 <strong>+0.234</strong> 였다. 명세가 요구한 목표는 +0.03 이었으므로 <strong>8배</strong>에 해당한다. 신용평가 모델의 AUC 가 0.9998 이라는 것은 현실에서 성립할 수 없는 수치이며, 이 상태의 결과로는 어떤 분석도 신뢰할 수 없다.</p>
+<hr>
+<h2 id="05_simulator-h8">4.3 원인 분석</h2>
+<h3 id="05_simulator-h9">규격 위반이 아니었다</h3>
+<p>먼저 확인한 것은 개별 상관이었다. 위 표에서 보듯 다섯 변수 모두 0.30~0.50 안에 있었다. 즉 <strong>명세를 위반해서 생긴 문제가 아니다.</strong> 문제는 개별 변수가 아니라 <strong>결합</strong>에 있었다.</p>
+<h3 id="05_simulator-h10">원인 ①: 부도율 6.68% 에서 상관 0.3~0.5 는 매우 강한 조건이다</h3>
+<p>이진 타겟에 대한 상관계수(점이연상관)는 두 집단의 분리 정도로 환산할 수 있다. 부도율 <code>p = 0.0668</code> 일 때</p>
+<pre><code>d = r / sqrt( p(1-p)(1 - r²) )</code></pre>
+<table><thead><tr><th style="text-align:right">|corr|</th><th style="text-align:right">Cohen's d</th><th style="text-align:right">그 변수 <strong>하나만</strong>으로 얻는 AUC</th></tr></thead><tbody><tr><td style="text-align:right">0.15</td><td style="text-align:right">0.60</td><td style="text-align:right">0.666</td></tr><tr><td style="text-align:right">0.20</td><td style="text-align:right">0.81</td><td style="text-align:right">0.718</td></tr><tr><td style="text-align:right">0.25</td><td style="text-align:right">1.03</td><td style="text-align:right">0.768</td></tr><tr><td style="text-align:right">0.30</td><td style="text-align:right">1.26</td><td style="text-align:right">0.813</td></tr><tr><td style="text-align:right">0.35</td><td style="text-align:right">1.49</td><td style="text-align:right">0.855</td></tr><tr><td style="text-align:right">0.40</td><td style="text-align:right">1.75</td><td style="text-align:right">0.892</td></tr><tr><td style="text-align:right">0.45</td><td style="text-align:right">2.02</td><td style="text-align:right">0.923</td></tr><tr><td style="text-align:right">0.49</td><td style="text-align:right">2.25</td><td style="text-align:right"><strong>0.944</strong></td></tr></tbody></table>
+<p><strong>대안 변수 하나가 전통 피처 13개를 모두 쓴 모델(0.834)을 이긴다.</strong> 명세가 요구한 상관 범위의 상단에서는 단일 변수 AUC 가 0.94 에 달한다. 이것만으로도 규격 자체가 관대하다는 점이 드러나지만, 실제 문제는 여기서 더 나아갔다.</p>
+<h3 id="05_simulator-h11">원인 ②: 타겟을 조건으로 하면 다섯 변수가 거의 독립이었다</h3>
+<p>v1 은 각 변수의 비(非)타겟 성분을 <code>0.6 · nuisance + 0.8 · eps_i</code> 로 채웠다. <code>nuisance</code> 는 공유되지만 가중치가 0.6 이고, 개별 노이즈 <code>eps_i</code> 가 0.8 로 더 크다. 그 결과 <strong>타겟을 고정하면 다섯 변수가 서로 거의 무관</strong>해졌다.</p>
+<figure><img src="report_assets/within_class_correlation_v1_v2.png" alt="클래스 내부 상관 v1 vs v2"><figcaption>클래스 내부 상관 v1 vs v2</figcaption></figure>
+<p>정상(부도=0) 집단 안에서 다섯 변수 간 상관의 평균은 v1 에서 <strong>0.177</strong> 이었다. 서로 다른 정보를 담은 것처럼 보이지만, 실제로는 <strong>같은 타겟 정보를 각자 독립적인 노이즈에 실어 다섯 번 반복 전달</strong>한 것이다.</p>
+<p>조건부로 독립인 변수들은 정보가 제곱합으로 누적된다.</p>
+<table><thead><tr><th>변수</th><th style="text-align:right">Cohen's d</th></tr></thead><tbody><tr><td><code>telecom_payment_rate</code></td><td style="text-align:right">2.224</td></tr><tr><td><code>utility_payment_rate</code></td><td style="text-align:right">1.961</td></tr><tr><td><code>spending_consistency</code></td><td style="text-align:right">1.743</td></tr><tr><td><code>regular_payment_count</code></td><td style="text-align:right">1.498</td></tr><tr><td><code>app_login_frequency</code></td><td style="text-align:right">1.273</td></tr><tr><td><strong>결합 (조건부 독립 가정, sqrt(Σd²))</strong></td><td style="text-align:right"><strong>4.02</strong></td></tr></tbody></table>
+<p><code>d = 4.02</code> 는 Φ(4.02/√2) = <strong>AUC 0.998</strong> 에 해당한다. 관측된 <code>alternative_only</code> AUC 0.9957 과 같은 크기다.</p>
+<blockquote><p><strong>해석 시 주의.</strong> <code>sqrt(Σd²)</code> 는 조건부 독립을 <strong>가정한</strong> 상한이다. 실제 공분산을 반영한 값(마할라노비스 거리)은 v1 에서 3.04(선형 판별 기준 AUC 0.984)로 조금 낮다. 트리 모델은 선형 판별보다 잘 맞추므로 관측 0.9957 이 그 사이에 놓인다. 두 수치를 같은 것으로 취급해서는 안 되지만, <strong>자릿수와 방향은 원인 진단을 뒷받침한다.</strong></p></blockquote>
+<h3 id="05_simulator-h12">결론: 버그가 아니라 가정의 결과였다</h3>
+<p>코드에 오류는 없었다. 문제는 "다섯 개의 대안 변수가 타겟 외에는 서로 무관하다"는 <strong>암묵적 가정</strong>이었고, 그 가정이 현실과 맞지 않았다. 현실에서는 <strong>통신비를 성실히 내는 사람이 공과금도 성실히 낸다.</strong> 이 공통 요인이 없으면 다섯 변수는 독립적인 증거 다섯 개가 되어 정보가 그대로 합산된다.</p>
+<hr>
+<h2 id="05_simulator-h13">4.4 v2: 공유 잠재요인 도입</h2>
+<h3 id="05_simulator-h14">구조 변경</h3>
+<p>비타겟 성분을 <strong>모든 변수가 공유하는 잠재요인</strong>과 개별 노이즈로 명시적으로 분리했다.</p>
+<pre><code>shared = standardize(0.6 · nuisance + 0.8 · common_noise)   ← 다섯 변수가 공유
+m_i    = w · shared + sqrt(1 - w²) · eps_i                  ← w = latent_factor_strength
+m_i    ← t_z 성분 제거 후 재표준화
+v_i    = rho_i · t_z + sqrt(1 - rho_i²) · m_i</code></pre>
+<p><code>shared</code> 는 "금융 성실성"에 해당하는 잠재 특성이다. <code>w</code> 를 키우면 다섯 변수가 서로 강하게 상관되고, 각자가 전달하는 정보가 겹치므로 결합 판별력이 낮아진다.</p>
+<p><code>w</code> 는 <code>config/config.yaml</code> 의 <code>simulator.latent_factor_strength</code> 로 노출했다. 목표 상관도 규격 범위의 하단(<code>generation_correlation</code> = 0.31~0.35)만 쓰도록 바꿨다.</p>
+<h3 id="05_simulator-h15">효과</h3>
+<p>아래 AUC 는 모두 <strong>LightGBM · class_weight</strong> 조합으로 통일해 비교했다.</p>
+<table><thead><tr><th>지표</th><th style="text-align:right">v1</th><th style="text-align:right">v2</th></tr></thead><tbody><tr><td>클래스 내부 평균 상관 (정상 집단)</td><td style="text-align:right">0.177</td><td style="text-align:right"><strong>0.667</strong></td></tr><tr><td>결합 d — 조건부 독립 가정</td><td style="text-align:right">4.02</td><td style="text-align:right">3.00</td></tr><tr><td>결합 d — 실제 (공분산 반영)</td><td style="text-align:right">3.04</td><td style="text-align:right"><strong>1.54</strong></td></tr><tr><td><code>traditional_only</code> test AUC</td><td style="text-align:right">0.8342</td><td style="text-align:right">0.8338</td></tr><tr><td><code>alternative_only</code> test AUC</td><td style="text-align:right">0.9957</td><td style="text-align:right"><strong>0.8902</strong></td></tr><tr><td><code>combined</code> test AUC</td><td style="text-align:right">0.9998</td><td style="text-align:right"><strong>0.9448</strong></td></tr></tbody></table>
+<p>18개 조합 전체에서의 최고값은 <code>combined</code> 0.9460(LightGBM · SMOTE)이다. 5장 참조.</p>
+<p>위 히트맵 오른쪽이 v2 다. 클래스 내부 상관이 0.64~0.77 로 올라가면서 결합 판별력이 절반 수준으로 떨어졌다. 개별 상관은 여전히 규격 안에 있다(0.3094~0.3497).</p>
+<hr>
+<h2 id="05_simulator-h16">4.5 w 레버 실험과 상보성 판정</h2>
+<p><code>combined</code> AUC 가 0.9998 → 0.9460 으로 내려왔지만 여전히 높아 보였다. <code>w</code> 를 더 키우면 계속 내려가는지 확인했다.</p>
+<blockquote><p><strong>측정 조건.</strong> 아래 두 실험은 v2 구조를 확정하던 시점, 즉 <code>bias_ratio = 0.1</code> 에서 측정했다. 이후 <a href="decisions/ADR-002-bias-injection.md">ADR-002 v3</a> 으로 <code>bias_ratio</code> 를 0.3 으로 올렸으므로 최종 데이터의 값과 소수 셋째 자리에서 다르다 (최종: <code>combined</code> 0.9448, <code>alternative_only</code> 0.8902, 개별 상관 0.3099~0.3285). 두 실험의 목적은 <strong>레버를 움직였을 때의 반응 방향과 크기</strong>를 보는 것이므로 결론은 같다.</p></blockquote>
+<h3 id="05_simulator-h17">실험 1: 공유요인 강도 <code>w</code></h3>
+<p>생성 상관 0.31~0.35 고정, LightGBM class_weight, train 학습 → test 평가.</p>
+<table><thead><tr><th style="text-align:right"><code>w</code></th><th style="text-align:right">클래스 내부 평균 상관</th><th style="text-align:right">traditional</th><th style="text-align:right">alternative</th><th style="text-align:right"><strong>combined</strong></th></tr></thead><tbody><tr><td style="text-align:right">0.85</td><td style="text-align:right">0.692</td><td style="text-align:right">0.8338</td><td style="text-align:right">0.8963</td><td style="text-align:right"><strong>0.9470</strong></td></tr><tr><td style="text-align:right">0.90</td><td style="text-align:right">0.782</td><td style="text-align:right">0.8338</td><td style="text-align:right">0.8870</td><td style="text-align:right">0.9420</td></tr><tr><td style="text-align:right">0.92</td><td style="text-align:right">0.821</td><td style="text-align:right">0.8338</td><td style="text-align:right">0.8843</td><td style="text-align:right">0.9412</td></tr><tr><td style="text-align:right">0.94</td><td style="text-align:right">0.861</td><td style="text-align:right">0.8338</td><td style="text-align:right">0.8798</td><td style="text-align:right">0.9396</td></tr></tbody></table>
+<p><code>w</code> 를 0.85 에서 0.94 까지 올려도 <code>combined</code> 는 0.9470 → 0.9396, <strong>0.007 밖에 움직이지 않았다.</strong> 공유요인은 대안 변수들 <strong>사이의</strong> 중복을 늘릴 뿐, 전통 피처와 대안 피처 <strong>사이의</strong> 관계는 건드리지 못하기 때문이다.</p>
+<h3 id="05_simulator-h18">실험 2: 생성 상관 하한</h3>
+<p><code>w</code> = 0.85 고정.</p>
+<table><thead><tr><th>생성 상관</th><th>실제 |corr|</th><th style="text-align:right">alternative</th><th style="text-align:right"><strong>combined</strong></th><th>SPEC §4 (0.3~0.5)</th></tr></thead><tbody><tr><td><strong>0.31~0.35 (채택)</strong></td><td>0.309~0.346</td><td style="text-align:right">0.8963</td><td style="text-align:right"><strong>0.9470</strong></td><td>충족</td></tr><tr><td>0.26~0.30</td><td>0.260~0.297</td><td style="text-align:right">0.8453</td><td style="text-align:right">0.9206</td><td><strong>위반</strong></td></tr><tr><td>0.22~0.26</td><td>0.220~0.259</td><td style="text-align:right">0.7980</td><td style="text-align:right">0.8985</td><td><strong>위반</strong></td></tr><tr><td>0.18~0.22</td><td>0.181~0.219</td><td style="text-align:right">0.7549</td><td style="text-align:right">0.8788</td><td><strong>위반</strong></td></tr></tbody></table>
+<p><code>combined</code> 를 0.90 아래로 내리려면 개별 상관을 0.22~0.26 까지 낮춰야 하고, 그러면 명세의 상관 요건을 위반한다. <strong>명세를 지키는 한 <code>combined</code> 의 하한은 약 0.94 다.</strong></p>
+<h3 id="05_simulator-h19">판정: 남은 것은 누수가 아니라 상보성이다</h3>
+<p>두 실험이 가리키는 결론은 같다.</p>
+<ul><li>v1 의 0.9998 은 <strong>결합 누수</strong>였다. 조건부 독립이라는 비현실적 가정 때문에 같은 타겟 정보가 다섯 번 합산됐고, 공유요인을 넣자 사라졌다.</li><li>v2 의 0.9470 은 <strong>전통 정보와 대안 정보의 상보성</strong>이다. <code>alternative_only</code> 0.896 과 <code>traditional_only</code> 0.834 가 서로 다른 정보를 담고 있어 합치면 0.947 이 된다. 이것은 결함이 아니라 <strong>이 프로젝트가 증명하려는 현상 그 자체</strong>다.</li></ul>
+<p>이 판정에 따라 목표 구간을 처음 설정한 0.85~0.90 에서 <strong>0.90~0.95 로 정정</strong>하고, <code>latent_factor_strength = 0.85</code>, <code>generation_correlation = 0.31~0.35</code> 를 최종 채택했다.</p>
+<blockquote><p><strong>한계로 남는 부분.</strong> 명세의 상관 요건(0.3~0.5)을 부도율 6.68% 인 이진 타겟에 적용하면 AUC 0.94 대가 구조적 하한이 된다. 실제 신용평가 모델의 AUC 는 통상 0.85~0.88 이므로, 본 리포트의 절대 수치는 실무 성능의 추정치가 아니다. 자세한 내용은 10장에서 다룬다.</p></blockquote>
+<hr>
+<h2 id="05_simulator-h20">4.6 씬파일러 유형 분화</h2>
+<h3 id="05_simulator-h21">v1 의 문제: OR 정의가 형해화됐다</h3>
+<p>명세(SPEC §4)는 씬파일러를 다음으로 정의한다.</p>
+<blockquote><p>금융 연체 관련 컬럼 2개 이상 결측치<strong>이거나</strong> 신용카드 거래 이력이 12개월 미만인 고객</p></blockquote>
+<p>GMSC 에는 거래 이력 개월수 컬럼이 없어 <a href="decisions/ADR-009-credit-history-months.md">ADR-009</a> 로 <code>credit_history_months</code> 를 합성했다(씬파일러 3~11개월, 일반 12~120개월, 연령과 약한 양의 상관). 그런데 이렇게 만들자 씬파일러로 선정된 행이 <strong>두 조건을 항상 동시에</strong> 만족했다.</p>
+<table><thead><tr><th></th><th style="text-align:right">v1</th><th style="text-align:right">v2</th></tr></thead><tbody><tr><td>연체 컬럼 2개 이상 결측</td><td style="text-align:right">45,000</td><td style="text-align:right">31,471</td></tr><tr><td>거래 이력 12개월 미만</td><td style="text-align:right">45,000</td><td style="text-align:right">27,121</td></tr><tr><td><strong>교집합</strong></td><td style="text-align:right">45,000</td><td style="text-align:right"><strong>13,592</strong></td></tr><tr><td><strong>합집합 (= <code>is_thin_filer</code>)</strong></td><td style="text-align:right">45,000</td><td style="text-align:right"><strong>45,000</strong></td></tr></tbody></table>
+<p>교집합과 합집합이 같으면 OR 로 쓴 정의가 아무 일도 하지 않는다. 어느 한 조건만으로도 씬파일러 전체를 잡아낼 수 있기 때문이다.</p>
+<h3 id="05_simulator-h22">유형 분화 (ADR-010)</h3>
+<p>선정된 씬파일러를 세 유형으로 나눴다.</p>
+<table><thead><tr><th>유형</th><th style="text-align:right">비중</th><th>연체 3컬럼</th><th>거래 이력</th></tr></thead><tbody><tr><td><code>missing_only</code></td><td style="text-align:right">40%</td><td>결측</td><td>12~120개월 (정상)</td></tr><tr><td><code>history_only</code></td><td style="text-align:right">30%</td><td>관측됨</td><td>3~11개월 (부족)</td></tr><tr><td><code>both</code></td><td style="text-align:right">30%</td><td>결측</td><td>3~11개월 (부족)</td></tr></tbody></table>
+<p>그림은 3.6절(씬파일러 구성과 프로파일)에 실었다.</p>
+<p>실제 분포는 <code>missing_only</code> 17,879건(39.7%) / <code>history_only</code> 13,529건(30.1%) / <code>both</code> 13,592건(30.2%) 으로 설정과 일치한다. 가운데 패널이 정의 기준의 분리를 보여준다. 오른쪽 패널은 정의에 쓰이지 않는 다른 피처들의 차이가 ±0.031 z 이내라는 것, 즉 <strong>세 유형이 정의 기준에서만 다르다</strong>는 것을 확인해준다.</p>
+<h3 id="05_simulator-h23">왜 이 분화가 중요한가</h3>
+<p>유형을 나누지 않았다면 5장에서 확인한 대비를 볼 수 없었다.</p>
+<p>XGBoost 기준, test 22,500행을 세그먼트로 나눠 측정했다.</p>
+<table><thead><tr><th>세그먼트</th><th style="text-align:right">n</th><th style="text-align:right">전통 AUC</th><th style="text-align:right">통합 AUC</th><th style="text-align:right">uplift</th></tr></thead><tbody><tr><td>일반</td><td style="text-align:right">15,696</td><td style="text-align:right">0.8548</td><td style="text-align:right">0.9494</td><td style="text-align:right">+0.0946</td></tr><tr><td><code>history_only</code></td><td style="text-align:right">2,084</td><td style="text-align:right">0.8422</td><td style="text-align:right">0.9435</td><td style="text-align:right">+0.1013</td></tr><tr><td><code>missing_only</code></td><td style="text-align:right">2,704</td><td style="text-align:right">0.7647</td><td style="text-align:right">0.9328</td><td style="text-align:right">+0.1681</td></tr><tr><td><strong><code>both</code></strong></td><td style="text-align:right">2,016</td><td style="text-align:right"><strong>0.7417</strong></td><td style="text-align:right">0.9299</td><td style="text-align:right"><strong>+0.1883</strong></td></tr></tbody></table>
+<p><code>history_only</code> 는 연체 이력이 온전히 관측되므로 전통 모델 AUC 가 0.842 로 일반 집단과 비슷하고, 대안 데이터의 기여도 +0.101 로 작다. 반대로 <code>both</code> 는 전통 AUC 0.742 로 가장 낮고 uplift 가 +0.188 로 가장 크다.</p>
+<p><strong>전통 피처의 정보량이 적을수록 대안 데이터의 기여가 커진다</strong> — ADR-001 이 의도한 구도가 데이터로 확인되는 지점이다. 자세한 분석은 5장에서 다룬다.</p>
+<h3 id="05_simulator-h24">학습 피처에서 제외한 것</h3>
+<p><code>credit_history_months</code> 와 <code>is_thin_filer</code>, <code>thin_filer_type</code> 은 <strong>모델 입력에서 제외</strong>했다. <code>credit_history_months &lt; 12</code> 는 <code>is_thin_filer</code> 의 정의 그 자체이므로, 이를 피처로 넣으면 모델이 "씬파일러 여부"를 직접 학습해 ADR-001 의 검증 구도가 무너진다. 연체 결측 여부는 <code>*_is_missing</code> 플래그로 이미 전통 피처 그룹에 반영돼 있다.</p>
+<p>보호 속성(<code>gender</code>, <code>age_group</code>)도 같은 이유와는 다른 이유로 제외했다. <a href="decisions/ADR-008-protected-attributes.md">ADR-008</a> 과 7장에서 다룬다.</p></section>
+<section class="chapter" id="06_models"><h1 id="06_models-h0">5. 모델 비교</h1>
+<p>이 장은 세 가지 질문에 답한다. <strong>대안 데이터가 실제로 도움이 되는가</strong>, <strong>그 도움은 누구에게 큰가</strong>, 그리고 <strong>어떤 알고리즘과 불균형 처리를 골라야 하는가</strong>.</p>
+<p>관련 설계 결정: <a href="decisions/ADR-001-simulator.md">ADR-001 v2</a> 부기(불균형 처리), <a href="decisions/ADR-003-score-mapping.md">ADR-003</a>, <a href="decisions/ADR-008-protected-attributes.md">ADR-008</a>, <a href="decisions/ADR-012-champion-algorithm.md">ADR-012</a></p>
+<blockquote><p><strong>이 장의 공통 측정 조건.</strong> 데이터는 <code>bias_ratio = 0.3</code> 로 생성한 최종 데이터셋. train 104,999행 / valid 22,500행 / test 22,500행 (70:15:15 층화 분할, <code>random_state=42</code>). CV 는 train 내부 <code>RepeatedStratifiedKFold(5×4)</code>, test 지표는 train 전체로 학습한 모델의 test 세트 평가값이다. 승인 임계값은 0.30.</p></blockquote>
+<hr>
+<h2 id="06_models-h1">5.1 실험 설계</h2>
+<h3 id="06_models-h2">조합</h3>
+<table><thead><tr><th>축</th><th>수준</th><th style="text-align:right">개수</th></tr></thead><tbody><tr><td>알고리즘</td><td>Logistic Regression, XGBoost, LightGBM</td><td style="text-align:right">3</td></tr><tr><td>피처 그룹</td><td><code>traditional_only</code>, <code>alternative_only</code>, <code>combined</code></td><td style="text-align:right">3</td></tr><tr><td>불균형 처리</td><td><code>class_weight='balanced'</code>, SMOTE</td><td style="text-align:right">2</td></tr><tr><td><strong>조합</strong></td><td></td><td style="text-align:right"><strong>18</strong></td></tr></tbody></table>
+<p>각 조합에 <code>RepeatedStratifiedKFold(5×4)</code> = 20 fold 를 돌렸다. 총 <strong>360 fits</strong> 에 최종 학습 18 fits 를 더해 <strong>소요 616.4초</strong>다(조합별 학습 시간 합 533.5초 + CV·평가 오버헤드).</p>
+<p>fold 별 AUC 360건은 <code>data/processed/fold_auc.csv</code> 에 저장해 8장의 ANOVA 관측치로 쓴다.</p>
+<h3 id="06_models-h3">피처 그룹 구성</h3>
+<table><thead><tr><th>그룹</th><th>피처</th><th style="text-align:right">개수</th></tr></thead><tbody><tr><td><code>traditional_only</code></td><td>GMSC 원본 10개 + 연체 결측 플래그 3개</td><td style="text-align:right">13</td></tr><tr><td><code>alternative_only</code></td><td>대안 데이터 5개</td><td style="text-align:right">5</td></tr><tr><td><code>combined</code></td><td>위 둘의 합집합</td><td style="text-align:right">18</td></tr></tbody></table>
+<p>보호 속성(<code>gender</code>, <code>age_group</code>)과 세그먼트 컬럼(<code>is_thin_filer</code>, <code>thin_filer_type</code>, <code>credit_history_months</code>)은 <strong>어떤 그룹에도 포함되지 않는다</strong>(ADR-008, ADR-009).</p>
+<h3 id="06_models-h4">불균형 처리에서 누수를 막는 방법</h3>
+<p>SMOTE 는 학습 fold 안에서만 적용해야 한다. 전체 데이터에 먼저 SMOTE 를 걸면 합성 샘플이 검증 fold 로 넘어가 성능이 부풀려진다. 이를 구조적으로 막으려고 <code>imblearn.pipeline.Pipeline</code> 으로 감쌌다. 파이프라인은 <code>fit</code> 시에만 리샘플링하고 <code>predict</code> 시에는 하지 않는다.</p>
+<hr>
+<h2 id="06_models-h5">5.2 18개 조합 전체 결과</h2>
+<table><thead><tr><th>알고리즘</th><th>피처 그룹</th><th>불균형</th><th>CV AUC ± SD</th><th style="text-align:right">test AUC</th><th style="text-align:right">KS</th><th style="text-align:right">F1</th><th style="text-align:right">PSI</th></tr></thead><tbody><tr><td>LogReg</td><td>traditional</td><td>class_weight</td><td>0.7646 ± 0.0056</td><td style="text-align:right">0.7724</td><td style="text-align:right">0.3977</td><td style="text-align:right">0.1518</td><td style="text-align:right">0.0008</td></tr><tr><td>LogReg</td><td>traditional</td><td>smote</td><td>0.7560 ± 0.0057</td><td style="text-align:right">0.7664</td><td style="text-align:right">0.3900</td><td style="text-align:right">0.1505</td><td style="text-align:right">0.0006</td></tr><tr><td>LightGBM</td><td>traditional</td><td>class_weight</td><td>0.8354 ± 0.0045</td><td style="text-align:right">0.8338</td><td style="text-align:right">0.5191</td><td style="text-align:right">0.2472</td><td style="text-align:right">0.0014</td></tr><tr><td>LightGBM</td><td>traditional</td><td>smote</td><td>0.8272 ± 0.0046</td><td style="text-align:right">0.8275</td><td style="text-align:right">0.5033</td><td style="text-align:right">0.3619</td><td style="text-align:right">0.0012</td></tr><tr><td>XGBoost</td><td>traditional</td><td>class_weight</td><td>0.8355 ± 0.0047</td><td style="text-align:right"><strong>0.8355</strong></td><td style="text-align:right">0.5234</td><td style="text-align:right">0.2430</td><td style="text-align:right">0.0007</td></tr><tr><td>XGBoost</td><td>traditional</td><td>smote</td><td>0.8219 ± 0.0051</td><td style="text-align:right">0.8229</td><td style="text-align:right">0.5051</td><td style="text-align:right">0.3480</td><td style="text-align:right">0.0014</td></tr><tr><td>LogReg</td><td>alternative</td><td>class_weight</td><td>0.8926 ± 0.0038</td><td style="text-align:right">0.8879</td><td style="text-align:right">0.6318</td><td style="text-align:right">0.2766</td><td style="text-align:right">0.0006</td></tr><tr><td>LogReg</td><td>alternative</td><td>smote</td><td>0.8926 ± 0.0038</td><td style="text-align:right">0.8879</td><td style="text-align:right">0.6316</td><td style="text-align:right">0.2784</td><td style="text-align:right">0.0005</td></tr><tr><td>LightGBM</td><td>alternative</td><td>class_weight</td><td>0.8918 ± 0.0038</td><td style="text-align:right"><strong>0.8902</strong></td><td style="text-align:right">0.6280</td><td style="text-align:right">0.3159</td><td style="text-align:right">0.0013</td></tr><tr><td>LightGBM</td><td>alternative</td><td>smote</td><td>0.8911 ± 0.0037</td><td style="text-align:right">0.8900</td><td style="text-align:right">0.6207</td><td style="text-align:right">0.4560</td><td style="text-align:right">0.0006</td></tr><tr><td>XGBoost</td><td>alternative</td><td>class_weight</td><td>0.8917 ± 0.0039</td><td style="text-align:right">0.8893</td><td style="text-align:right">0.6285</td><td style="text-align:right">0.3048</td><td style="text-align:right">0.0007</td></tr><tr><td>XGBoost</td><td>alternative</td><td>smote</td><td>0.8919 ± 0.0036</td><td style="text-align:right">0.8886</td><td style="text-align:right">0.6281</td><td style="text-align:right">0.4374</td><td style="text-align:right">0.0005</td></tr><tr><td>LogReg</td><td>combined</td><td>class_weight</td><td>0.9120 ± 0.0037</td><td style="text-align:right">0.9099</td><td style="text-align:right">0.6720</td><td style="text-align:right">0.2999</td><td style="text-align:right">0.0010</td></tr><tr><td>LogReg</td><td>combined</td><td>smote</td><td>0.9069 ± 0.0041</td><td style="text-align:right">0.9050</td><td style="text-align:right">0.6620</td><td style="text-align:right">0.3002</td><td style="text-align:right">0.0007</td></tr><tr><td>LightGBM</td><td>combined</td><td>class_weight</td><td>0.9443 ± 0.0027</td><td style="text-align:right">0.9448</td><td style="text-align:right">0.7477</td><td style="text-align:right">0.4609</td><td style="text-align:right">0.0008</td></tr><tr><td>LightGBM</td><td>combined</td><td>smote</td><td>0.9454 ± 0.0025</td><td style="text-align:right"><strong>0.9460</strong></td><td style="text-align:right">0.7497</td><td style="text-align:right">0.6219</td><td style="text-align:right">0.0005</td></tr><tr><td><strong>XGBoost</strong></td><td><strong>combined</strong></td><td><strong>class_weight</strong></td><td>0.9451 ± 0.0024</td><td style="text-align:right"><strong>0.9453</strong></td><td style="text-align:right"><strong>0.7502</strong></td><td style="text-align:right">0.4378</td><td style="text-align:right">0.0005</td></tr><tr><td>XGBoost</td><td>combined</td><td>smote</td><td>0.9447 ± 0.0025</td><td style="text-align:right">0.9446</td><td style="text-align:right">0.7428</td><td style="text-align:right">0.6159</td><td style="text-align:right">0.0006</td></tr></tbody></table>
+<p class="note">각주: <code>bias_ratio=0.3</code> 최종 데이터. CV 는 train 내부 20 fold, test 는 22,500행. 원본은 <code>data/processed/model_results.csv</code>. 굵게 표시한 행이 챔피언(5.5절).</p>
+<h3 id="06_models-h6">성능 목표 달성</h3>
+<table><thead><tr><th>지표</th><th>목표</th><th>결과</th></tr></thead><tbody><tr><td>Test AUC-ROC</td><td>≥ 0.78</td><td><strong>16/18 조합 충족</strong>, 최고 0.9460</td></tr><tr><td>Test KS</td><td>≥ 0.28</td><td><strong>18/18 조합 충족</strong>, 최고 0.7502</td></tr><tr><td>PSI (train↔test)</td><td>&lt; 0.1</td><td><strong>18/18 조합 충족</strong>, 최대 0.0014</td></tr><tr><td>씬파일러 AUC 향상</td><td>≥ +0.03</td><td><strong>충족</strong>, +0.1518 (5.4절)</td></tr></tbody></table>
+<p>AUC 목표를 못 넘긴 2개 조합은 모두 <code>LogReg × traditional_only</code> 다(0.7724 / 0.7664). 이는 베이스라인 조합이므로 이상하지 않다. 선형 모델에 전통 피처만 주면 GMSC 의 비선형 관계(연체 횟수의 계단 효과, 소진율의 극단값)를 잡지 못한다.</p>
+<p>PSI 가 최대 0.0014 로 목표(0.1)보다 두 자리 작다. 층화 분할로 train/test 의 예측 점수 분포가 거의 같기 때문이다. 시계열 분할이 아니라 무작위 분할이므로 <strong>분포 이동을 검출하는 지표로서는 관대한 조건</strong>임을 감안해야 한다.</p>
+<hr>
+<h2 id="06_models-h7">5.3 피처 그룹 비교: 대안 데이터의 기여</h2>
+<figure><img src="report_assets/feature_group_auc.png" alt="피처 그룹별 test AUC"><figcaption>피처 그룹별 test AUC</figcaption></figure>
+<table><thead><tr><th>피처 그룹</th><th style="text-align:right">최고 test AUC</th><th>조합</th></tr></thead><tbody><tr><td><code>traditional_only</code></td><td style="text-align:right">0.8355</td><td>XGBoost / class_weight</td></tr><tr><td><code>alternative_only</code></td><td style="text-align:right">0.8902</td><td>LightGBM / class_weight</td></tr><tr><td><strong><code>combined</code></strong></td><td style="text-align:right"><strong>0.9460</strong></td><td>LightGBM / SMOTE</td></tr></tbody></table>
+<p>세 그룹의 순서가 여섯 개 (알고리즘 × 불균형) 조합 전부에서 동일하다: <code>traditional &lt; alternative &lt; combined</code>. 8장의 ANOVA 는 이 차이가 통계적으로 유의함을 확인한다(F=4245.65, Tukey 3쌍 모두 p_adj &lt; 0.0001).</p>
+<p><code>alternative_only</code> 가 <code>traditional_only</code> 를 앞서는 것(+0.0547)은 실제 대안 데이터의 예측력을 의미하지 않는다. 4.3절에서 설명했듯 명세가 요구한 상관 요건(0.3~0.5)이 부도율 6.68% 인 타겟에서는 매우 강한 조건이기 때문이다. <strong>의미 있는 것은 통합 시 추가 이득</strong>(0.8902 → 0.9460, +0.0558)이며, 이는 두 정보원이 서로 다른 것을 담고 있다는 증거다.</p>
+<figure><img src="report_assets/roc_pr_curves.png" alt="ROC / PR 곡선"><figcaption>ROC / PR 곡선</figcaption></figure>
+<p>ROC 곡선에서 <code>combined</code> 가 낮은 FPR 구간에서 특히 유리하다. 심사에서 실제로 쓰는 구간은 FPR 0.1~0.3 대이므로 이 영역의 개선이 실질적이다.</p>
+<p>PR 곡선은 다른 이야기를 한다. 기저 부도율이 0.067 이라 정밀도의 절대 수준이 낮다. <code>combined</code> 도 recall 0.9 지점에서 정밀도가 0.3 을 넘지 못한다. 임계값 선택 문제는 5.6절과 10장에서 다룬다.</p>
+<figure><img src="report_assets/confusion_matrices.png" alt="혼동행렬"><figcaption>혼동행렬</figcaption></figure>
+<hr>
+<h2 id="06_models-h8">5.4 씬파일러 유형별 uplift — 이 장의 핵심 결과</h2>
+<p>대안 데이터가 <strong>누구에게</strong> 도움이 되는지를 본다. 같은 챔피언 알고리즘(XGBoost)으로 <code>traditional_only</code> 와 <code>combined</code> 를 각각 학습하고, test 세트를 세그먼트로 나눠 AUC 를 비교했다.</p>
+<table><thead><tr><th>세그먼트</th><th style="text-align:right">n</th><th style="text-align:right">부도율</th><th style="text-align:right">전통 AUC</th><th style="text-align:right">통합 AUC</th><th style="text-align:right"><strong>uplift</strong></th></tr></thead><tbody><tr><td>전체</td><td style="text-align:right">22,500</td><td style="text-align:right">0.0668</td><td style="text-align:right">0.8355</td><td style="text-align:right">0.9453</td><td style="text-align:right">+0.1098</td></tr><tr><td>일반 (비씬파일러)</td><td style="text-align:right">15,696</td><td style="text-align:right">0.0672</td><td style="text-align:right">0.8548</td><td style="text-align:right">0.9494</td><td style="text-align:right">+0.0946</td></tr><tr><td>씬파일러 전체</td><td style="text-align:right">6,804</td><td style="text-align:right">0.0661</td><td style="text-align:right">0.7831</td><td style="text-align:right">0.9349</td><td style="text-align:right">+0.1518</td></tr><tr><td>└ <code>history_only</code></td><td style="text-align:right">2,084</td><td style="text-align:right">0.0643</td><td style="text-align:right">0.8422</td><td style="text-align:right">0.9435</td><td style="text-align:right">+0.1013</td></tr><tr><td>└ <code>missing_only</code></td><td style="text-align:right">2,704</td><td style="text-align:right">0.0632</td><td style="text-align:right">0.7647</td><td style="text-align:right">0.9328</td><td style="text-align:right">+0.1681</td></tr><tr><td>└ <strong><code>both</code></strong></td><td style="text-align:right">2,016</td><td style="text-align:right">0.0719</td><td style="text-align:right"><strong>0.7417</strong></td><td style="text-align:right">0.9299</td><td style="text-align:right"><strong>+0.1883</strong></td></tr></tbody></table>
+<p class="note">각주: XGBoost · <code>class_weight</code>, test 22,500행. <code>bias_ratio=0.3</code>. 원본은 <code>data/processed/thin_filer_uplift.csv</code>. LightGBM·LogReg 결과도 같은 파일에 있고 순서는 동일하다.</p>
+<figure><img src="report_assets/thin_filer_uplift.png" alt="씬파일러 uplift"><figcaption>씬파일러 uplift</figcaption></figure>
+<h3 id="06_models-h9">읽는 방법</h3>
+<p><strong>전통 AUC 열이 순서를 결정한다.</strong> <code>history_only</code> 는 연체 3컬럼이 온전히 관측되므로 전통 모델이 0.8422 로 일반 집단(0.8548)과 거의 같다. 반면 <code>both</code> 는 연체 기록이 없고 거래 이력도 짧아 전통 모델이 0.7417 까지 떨어진다.</p>
+<p>그리고 uplift 는 그 역순이다.</p>
+<table><thead><tr><th>세그먼트</th><th style="text-align:right">전통 AUC</th><th style="text-align:right">uplift</th></tr></thead><tbody><tr><td>일반</td><td style="text-align:right">0.8548</td><td style="text-align:right">+0.0946</td></tr><tr><td><code>history_only</code></td><td style="text-align:right">0.8422</td><td style="text-align:right">+0.1013</td></tr><tr><td><code>missing_only</code></td><td style="text-align:right">0.7647</td><td style="text-align:right">+0.1681</td></tr><tr><td><code>both</code></td><td style="text-align:right">0.7417</td><td style="text-align:right">+0.1883</td></tr></tbody></table>
+<p><strong>전통 피처의 정보량이 적을수록 대안 데이터의 기여가 커진다.</strong> 네 세그먼트에서 예외 없이 성립한다. <code>both</code> 의 uplift(+0.1883)는 일반 집단(+0.0946)의 <strong>2배</strong>다.</p>
+<p>이것이 ADR-001 이 의도한 구도다. 씬파일러의 전통 피처 정보량을 구조적으로 줄여놓았기 때문에, 대안 데이터의 기여를 "누수가 아닌 결과"로 읽을 수 있다. 그리고 <a href="decisions/ADR-010-thin-filer-types.md">ADR-010</a> 의 유형 분화가 없었다면 씬파일러를 한 덩어리(+0.1518)로만 볼 수 있었고, <code>history_only</code> 와 <code>both</code> 사이의 1.9배 차이는 드러나지 않았다.</p>
+<h3 id="06_models-h10">통합 AUC 는 세그먼트에 관계없이 비슷하다</h3>
+<p>주목할 점이 하나 더 있다. <code>combined</code> 의 AUC 는 0.9299 ~ 0.9494 로 세그먼트 간 편차가 작다(0.0195). 전통 모델의 편차는 0.1131(0.7417 ~ 0.8548)이다.</p>
+<p>즉 <strong>대안 데이터를 넣으면 씬파일러와 일반 고객 사이의 평가 품질 격차가 줄어든다.</strong> 금융 포용성 관점에서 이것이 대안신용평가의 핵심 논거다. 다만 이 수치는 시뮬레이션의 산물이며 실제 크기를 나타내지 않는다(10장).</p>
+<hr>
+<h2 id="06_models-h11">5.5 불균형 처리와 알고리즘 선정</h2>
+<h3 id="06_models-h12">불균형 처리: <code>class_weight</code> 채택</h3>
+<p>9개 (피처그룹 × 알고리즘) 쌍 전체를 비교했다.</p>
+<table><thead><tr><th>피처 그룹</th><th>알고리즘</th><th style="text-align:right">class_weight</th><th style="text-align:right">SMOTE</th><th style="text-align:right">차이</th></tr></thead><tbody><tr><td>traditional</td><td>XGBoost</td><td style="text-align:right"><strong>0.8355</strong></td><td style="text-align:right">0.8229</td><td style="text-align:right"><strong>+0.0126</strong></td></tr><tr><td>traditional</td><td>LightGBM</td><td style="text-align:right"><strong>0.8338</strong></td><td style="text-align:right">0.8275</td><td style="text-align:right">+0.0063</td></tr><tr><td>traditional</td><td>LogReg</td><td style="text-align:right"><strong>0.7724</strong></td><td style="text-align:right">0.7664</td><td style="text-align:right">+0.0059</td></tr><tr><td>alternative</td><td>XGBoost</td><td style="text-align:right"><strong>0.8893</strong></td><td style="text-align:right">0.8886</td><td style="text-align:right">+0.0007</td></tr><tr><td>alternative</td><td>LightGBM</td><td style="text-align:right"><strong>0.8902</strong></td><td style="text-align:right">0.8900</td><td style="text-align:right">+0.0002</td></tr><tr><td>alternative</td><td>LogReg</td><td style="text-align:right">0.8879</td><td style="text-align:right">0.8879</td><td style="text-align:right">−0.0001</td></tr><tr><td>combined</td><td>XGBoost</td><td style="text-align:right"><strong>0.9453</strong></td><td style="text-align:right">0.9446</td><td style="text-align:right">+0.0006</td></tr><tr><td>combined</td><td>LightGBM</td><td style="text-align:right">0.9448</td><td style="text-align:right"><strong>0.9460</strong></td><td style="text-align:right">−0.0013</td></tr><tr><td>combined</td><td>LogReg</td><td style="text-align:right"><strong>0.9099</strong></td><td style="text-align:right">0.9050</td><td style="text-align:right">+0.0049</td></tr></tbody></table>
+<p class="note">각주: test AUC 기준, <code>bias_ratio=0.3</code> 최종 데이터.</p>
+<p><code>class_weight</code> 가 <strong>9쌍 중 7쌍에서 우세</strong>하고, 1쌍은 사실상 동등하다 (LogReg <code>alternative_only</code>, 반올림 전 차이 −0.00005). <code>traditional_only</code> 에서는 차이가 뚜렷하고(+0.0059 ~ +0.0126), 대안 피처가 들어가면 차이가 거의 사라진다. SMOTE 가 실질적으로 앞선 경우는 LightGBM <code>combined</code> 한 쌍뿐이며, 그 차이 0.0013 은 <strong>CV 표준편차(±0.0025) 미만</strong>이다.</p>
+<p>F1 은 이야기가 다르다.</p>
+<table><thead><tr><th>조합</th><th style="text-align:right">class_weight F1</th><th style="text-align:right">SMOTE F1</th><th>class_weight (P / R)</th><th>SMOTE (P / R)</th></tr></thead><tbody><tr><td>XGBoost combined</td><td style="text-align:right">0.4378</td><td style="text-align:right"><strong>0.6159</strong></td><td>0.2899 / 0.8936</td><td>0.5506 / 0.6988</td></tr><tr><td>LightGBM combined</td><td style="text-align:right">0.4609</td><td style="text-align:right"><strong>0.6219</strong></td><td>0.3121 / 0.8810</td><td>0.5867 / 0.6616</td></tr></tbody></table>
+<p>SMOTE 의 F1 이 크게 높지만 이는 <strong>판별력이 나아진 것이 아니다.</strong> 정밀도가 0.29 → 0.55 로 오르고 재현율이 0.89 → 0.70 으로 내려간다. SMOTE 로 학습한 모델은 예측 확률이 위로 이동하므로 고정 임계값 0.30 에서 더 보수적으로 거절한다. <strong>재현율을 정밀도로 바꾼 것</strong>이며, 순위 성능(AUC·KS)은 그대로다.</p>
+<p>성능이 사실상 동등하므로 다른 기준으로 판단했다.</p>
+<blockquote><p><strong>SMOTE 는 원본에 존재하지 않는 합성 샘플로 학습한다.</strong> 이 모델의 SHAP 기여도를 고객에게 대출 거절 사유로 제시하면, 실재하지 않는 데이터에서 학습된 관계를 근거로 불이익 처분을 설명하는 셈이 된다. <strong>신용정보법 제36조의2</strong>(자동화평가 결과에 대한 설명 및 이의제기)의 설명 의무를 고려해 <code>class_weight='balanced'</code> 를 채택한다.</p></blockquote>
+<p>SMOTE 는 명세 §2 의 "불균형 처리 기법 2개 이상 비교" 요건을 위해 비교 실험으로 계속 학습·기록한다.</p>
+<h3 id="06_models-h13">알고리즘: XGBoost 채택, 단 근거는 성능이 아니다</h3>
+<p><code>combined</code> · <code>class_weight</code> 기준 test AUC 는 XGBoost 0.9453, LightGBM 0.9448, LogReg 0.9099 다. 8장의 ANOVA 사후검정 결과는 다음과 같다.</p>
+<table><thead><tr><th>비교</th><th style="text-align:right">평균 차이</th><th style="text-align:right">p_adj</th><th>유의</th></tr></thead><tbody><tr><td>XGBoost vs LogReg</td><td style="text-align:right">+0.0331</td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr><tr><td>LightGBM vs LogReg</td><td style="text-align:right">+0.0323</td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr><tr><td><strong>XGBoost vs LightGBM</strong></td><td style="text-align:right"><strong>+0.0008</strong></td><td style="text-align:right"><strong>0.6468</strong></td><td><strong>아니오</strong></td></tr></tbody></table>
+<p><strong>부스팅 계열 두 개는 통계적으로 구분되지 않는다.</strong> 따라서 "XGBoost 가 가장 성능이 좋다"는 서술은 데이터가 뒷받침하지 않는다.</p>
+<p>XGBoost 를 고른 근거는 <a href="decisions/ADR-012-champion-algorithm.md">ADR-012</a> 에 기록했다. <strong>SHAP TreeExplainer 지원 성숙도와 참조 자료의 풍부함</strong>이다. 설명가능성이 이 프로젝트의 핵심 산출물이므로 해석 도구와의 궁합을 우선했다. 성능이 동등하므로 학습·추론 비용이 병목이 되면 LightGBM 으로 교체해도 논거가 훼손되지 않는다.</p>
+<h3 id="06_models-h14">최종 챔피언</h3>
+<table><thead><tr><th>항목</th><th>값</th></tr></thead><tbody><tr><td>조합</td><td><code>xgboost</code> / <code>combined</code> / <code>class_weight</code></td></tr><tr><td>test AUC / KS</td><td>0.9453 / 0.7502</td></tr><tr><td>precision / recall / F1</td><td>0.2899 / 0.8936 / 0.4378</td></tr><tr><td>PSI</td><td>0.0005</td></tr><tr><td>저장 위치</td><td><code>models/champion_xgboost_v1.0.pkl</code></td></tr><tr><td>MLflow Registry</td><td><code>credit-scoring-champion</code> v1, alias <code>champion</code>, tag <code>stage=Production</code></td></tr></tbody></table>
+<p><code>config.models.champion</code> 에 조합을 명시했으므로, test AUC 최고 조합 (LightGBM/SMOTE 0.9460)이 아니라 이 조합이 서빙된다. 선정 근거가 성능이 아니기 때문이다.</p>
+<hr>
+<h2 id="06_models-h15">5.6 점수 매핑과 임계값</h2>
+<p><a href="decisions/ADR-003-score-mapping.md">ADR-003</a> 의 규칙은 다음과 같다.</p>
+<pre><code>credit_score = 1000 × (1 − p_default)
+등급          A ≥ 800 / B ≥ 650 / C ≥ 500 / D ≥ 350 / 그 미만 E
+승인 판정     p_default &lt; 0.30 이면 APPROVED</code></pre>
+<p>임계값 0.30 은 <strong>재현율을 우선한 설정</strong>이다. 챔피언 모델의 재현율은 0.8936 으로 부도의 89% 를 잡아내지만, 정밀도는 0.2899 다. 거절한 건 가운데 실제 부도는 29% 에 그친다.</p>
+<p>실무에서는 승인율 목표와 대손율 허용치를 함께 고려한 임계값 최적화가 필요하다. 본 프로젝트에서 0.30 을 유지한 이유는 <strong>임계값을 바꾸면 7장의 공정성 지표(DI, EO)와 Mitigation 결과가 모두 연동되어 바뀌기 때문</strong>이다. F1~F5 의 모든 수치를 하나의 임계값 위에서 정합시키기 위해 ADR-003 의 값으로 동결했다. 10장에서 한계로 다시 다룬다.</p>
+<hr>
+<h2 id="06_models-h16">5.7 MLflow 실험 추적</h2>
+<p>18개 조합을 모두 MLflow 에 기록했다.</p>
+<table><thead><tr><th>기록 항목</th><th>내용</th></tr></thead><tbody><tr><td><code>params</code></td><td>알고리즘, 피처그룹, 불균형처리, 피처 수, n_splits, n_repeats, random_state, 모델 버전, 임계값</td></tr><tr><td><code>metrics</code></td><td>CV AUC 평균·표준편차, valid/test AUC, KS, F1, precision, recall, PSI</td></tr><tr><td><code>metrics</code> (step)</td><td><code>fold_auc</code> 20 step — fold 별 AUC 를 시계열로 기록</td></tr><tr><td><code>artifacts</code></td><td>모델 (cloudpickle 직렬화)</td></tr><tr><td><code>tags</code></td><td>feature_group, algorithm, imbalance_method</td></tr></tbody></table>
+<p>Model Registry 에는 챔피언을 등록하고 alias <code>champion</code> 과 tag <code>stage=Production</code> 을 붙였다. 이전 버전은 삭제하지 않고 <code>stage=Archived</code> 로 내린다.</p>
+<p>백엔드는 SQLite(<code>sqlite:///mlflow.db</code>)를 쓴다. MLflow 3.x 가 파일 저장소를 유지보수 모드로 차단했고, Model Registry 는 애초에 파일 저장소에서 지원되지 않는다. <code>docker compose up</code> 후 <code>localhost:5000</code> 에서 확인할 수 있다.</p>
+<hr>
+<h2 id="06_models-h17">이 장의 결론</h2>
+<ol><li><strong>대안 데이터는 명확히 기여한다.</strong> 피처 그룹 순서가 여섯 개 조합 전부에서 <code>traditional (0.8355) &lt; alternative (0.8902) &lt; combined (0.9460)</code> 으로 동일하고, 성능 목표 4개를 모두 충족한다(AUC 16/18, KS 18/18, PSI 18/18, uplift +0.1518).</li><li><strong>기여의 크기는 전통 피처의 결손에 비례한다.</strong> 씬파일러 유형별 uplift 가 <code>history_only</code> +0.1013 &lt; <code>missing_only</code> +0.1681 &lt; <code>both</code> +0.1883 로, 전통 AUC 가 낮은 순서와 정확히 역순이다. 통합 모델은 세그먼트 간 AUC 편차를 0.1131 → 0.0195 로 줄인다.</li><li><strong>선정 근거는 성능만으로 결정되지 않았다.</strong> 불균형 처리는 성능이 동등해 설명가능성(합성 샘플 문제, 신용정보법 §36-2)으로 <code>class_weight</code> 를 골랐고, 알고리즘은 XGBoost 와 LightGBM 이 통계적으로 구분되지 않아(p_adj=0.6468) SHAP 지원 성숙도로 XGBoost 를 골랐다.</li></ol></section>
+<section class="chapter" id="07_xai"><h1 id="07_xai-h0">6. XAI 분석</h1>
+<p>이 장은 세 가지 질문에 답한다. <strong>모델은 무엇을 근거로 판단하는가</strong>(전역), <strong>특정 고객은 왜 거절됐는가</strong>(지역), 그리고 <strong>그 설명을 고객에게 그대로 내보내도 되는가</strong>(생성 로직). 마지막 질문이 가장 까다롭다. SHAP 값은 수학적으로 정확하지만, 그것을 문장으로 옮기는 순간 틀린 말이 섞일 수 있기 때문이다.</p>
+<p>관련 설계 결정: <a href="decisions/ADR-001-simulator.md">ADR-001 v2</a>(대안 피처 생성 구조), <a href="decisions/ADR-008-protected-attributes.md">ADR-008</a>, <a href="decisions/ADR-012-champion-algorithm.md">ADR-012</a>(SHAP 지원 성숙도)</p>
+<blockquote><p><strong>이 장의 공통 측정 조건.</strong> 챔피언 모델 <code>xgboost | combined | class_weight</code>, <code>bias_ratio = 0.3</code> 최종 데이터, SHAP <code>TreeExplainer</code>. 전역 해석은 test 세트에서 <code>random_state=42</code> 로 뽑은 <strong>2,000행 표본</strong>, 지역 해석은 test 22,500행에서 조건에 맞는 사례를 골랐다. 승인 임계값 0.30. 원본은 <code>data/processed/explain/</code> (<code>global_importance.csv</code>, <code>rejection_reasons_sample.json</code>).</p></blockquote>
+<hr>
+<h2 id="07_xai-h1">6.1 무엇을 설명하는가: 단위와 부호</h2>
+<h3 id="07_xai-h2">SHAP 값의 단위는 로그 오즈다</h3>
+<p>XGBoost 이진 분류기의 원시 출력은 부도의 <strong>로그 오즈</strong>다. SHAP 은 이 값을 피처별 기여로 분해한다.</p>
+<pre><code>f(x) = E[f(X)] + Σ φ_i            (φ_i = 피처 i 의 SHAP 값)
+p_default = 1 / (1 + exp(−f(x)))</code></pre>
+<p>기준값 <code>E[f(X)]</code> 는 <strong>0.1183</strong> 이고, 확률로 바꾸면 0.5295 다. 실제 부도율(6.68%)이 아니라 0.5 근처에 놓이는 이유는 <code>class_weight='balanced'</code> 로 학습해 양성과 음성의 가중을 맞췄기 때문이다. 따라서 이 모델의 예측 확률은 <strong>가중된 척도</strong>이며, 승인 임계값 0.30 도 이 척도 위의 값이다. 로그 오즈로는 <strong>−0.8473</strong> 이다. 워터폴에서 <code>f(x)</code> 가 이 값보다 작으면 승인이다.</p>
+<h3 id="07_xai-h3">부호 규약: 두 관점을 모두 싣는다</h3>
+<table><thead><tr><th>필드</th><th>관점</th><th>양수</th><th>음수</th><th>출처</th></tr></thead><tbody><tr><td><code>shap_value_default</code></td><td>부도 확률</td><td><strong>불리</strong> (부도 확률 ↑)</td><td>유리</td><td>SHAP 원본</td></tr><tr><td><code>shap_contribution</code></td><td>신용도</td><td>유리</td><td><strong>불리</strong></td><td>명세 §3 예시 <code>(기여도: -0.15)</code></td></tr></tbody></table>
+<p>모델은 부도를 예측하므로 SHAP 원본은 "양수 = 고객에게 불리"다. 그런데 명세의 거절 사유 예시는 불리한 요인을 <code>-0.15</code> 로 적는다. 고객이 읽는 문장에서는 <strong>음수가 불리</strong>해야 직관에 맞으므로 <code>shap_contribution = −φ</code> 로 부호를 뒤집어 담고, 혼동을 막기 위해 원본 값도 <code>shap_value_default</code> 로 함께 반환한다. 워터폴 그림은 SHAP 원본(빨강 = 부도 확률 ↑)을 그대로 쓴다.</p>
+<hr>
+<h2 id="07_xai-h4">6.2 전역 해석: 대안 피처가 판단의 중심에 있다</h2>
+<figure><img src="report_assets/shap_summary.png" alt="SHAP Summary Plot"><figcaption>SHAP Summary Plot</figcaption></figure>
+<table><thead><tr><th style="text-align:right">순위</th><th>피처</th><th>한글명</th><th>유형</th><th style="text-align:right">평균 |SHAP|</th></tr></thead><tbody><tr><td style="text-align:right"><strong>1</strong></td><td><code>telecom_payment_rate</code></td><td>통신비 정상납부율</td><td><strong>대안</strong></td><td style="text-align:right"><strong>1.0272</strong></td></tr><tr><td style="text-align:right"><strong>2</strong></td><td><code>spending_consistency</code></td><td>소비 일관성 점수</td><td><strong>대안</strong></td><td style="text-align:right">0.8200</td></tr><tr><td style="text-align:right">3</td><td><code>RevolvingUtilizationOfUnsecuredLines</code></td><td>무담보 신용한도 소진율</td><td>전통</td><td style="text-align:right">0.7654</td></tr><tr><td style="text-align:right"><strong>4</strong></td><td><code>utility_payment_rate</code></td><td>공과금 납부율</td><td><strong>대안</strong></td><td style="text-align:right">0.6314</td></tr><tr><td style="text-align:right">5</td><td><code>NumberOfTime30-59DaysPastDueNotWorse</code></td><td>30-59일 연체 횟수</td><td>전통</td><td style="text-align:right">0.4052</td></tr><tr><td style="text-align:right"><strong>6</strong></td><td><code>regular_payment_count</code></td><td>정기결제 건수</td><td><strong>대안</strong></td><td style="text-align:right">0.3806</td></tr><tr><td style="text-align:right"><strong>7</strong></td><td><code>app_login_frequency</code></td><td>앱 접속 빈도</td><td><strong>대안</strong></td><td style="text-align:right">0.3279</td></tr><tr><td style="text-align:right">8</td><td><code>MonthlyIncome</code></td><td>월 소득</td><td>전통</td><td style="text-align:right">0.2884</td></tr><tr><td style="text-align:right">9</td><td><code>NumberOfTimes90DaysLate</code></td><td>최근 90일 연체 횟수</td><td>전통</td><td style="text-align:right">0.2519</td></tr><tr><td style="text-align:right">10</td><td><code>DebtRatio</code></td><td>부채비율</td><td>전통</td><td style="text-align:right">0.2325</td></tr><tr><td style="text-align:right">11</td><td><code>age</code></td><td>연령</td><td>전통</td><td style="text-align:right">0.2038</td></tr><tr><td style="text-align:right">12</td><td><code>NumberOfOpenCreditLinesAndLoans</code></td><td>보유 신용계좌 수</td><td>전통</td><td style="text-align:right">0.1617</td></tr><tr><td style="text-align:right">13</td><td><code>NumberRealEstateLoansOrLines</code></td><td>부동산 담보대출 건수</td><td>전통</td><td style="text-align:right">0.1254</td></tr><tr><td style="text-align:right">14</td><td><code>NumberOfTime60-89DaysPastDueNotWorse</code></td><td>60-89일 연체 횟수</td><td>전통</td><td style="text-align:right">0.1248</td></tr><tr><td style="text-align:right">15</td><td><code>NumberOfDependents</code></td><td>부양가족 수</td><td>전통</td><td style="text-align:right">0.0539</td></tr><tr><td style="text-align:right">16~18</td><td>연체 결측 플래그 3종</td><td>기록 없음 표지</td><td>전통</td><td style="text-align:right">0.0000</td></tr></tbody></table>
+<p class="note">각주: test 2,000행 표본의 평균 |SHAP|(로그 오즈). 원본 <code>global_importance.csv</code>.</p>
+<h3 id="07_xai-h5">읽는 방법</h3>
+<p><strong>대안 피처 5개가 전부 7위 안에 있다</strong>(1·2·4·6·7위). 1위 <code>telecom_payment_rate</code>(1.0272)는 2위 <code>spending_consistency</code> 의 1.25배, 전통 피처 중 가장 높은 <code>RevolvingUtilization</code>(3위)의 1.34배다. 상위 15개 구성은 전통 10 · 대안 5 로, 피처 수로는 전통이 많지만 기여 크기는 대안에 쏠려 있다.</p>
+<table><thead><tr><th>집계</th><th style="text-align:right">대안 (5개)</th><th style="text-align:right">전통 (13개)</th><th style="text-align:right">배율</th></tr></thead><tbody><tr><td>피처당 평균 |SHAP|</td><td style="text-align:right"><strong>0.6374</strong></td><td style="text-align:right">0.2010</td><td style="text-align:right"><strong>3.2배</strong></td></tr><tr><td>피처당 평균 |SHAP| (결측 플래그 3개 제외)</td><td style="text-align:right">0.6374</td><td style="text-align:right">0.2613 (10개)</td><td style="text-align:right">2.4배</td></tr><tr><td>전체 |SHAP| 합에서 차지하는 비중</td><td style="text-align:right"><strong>54.9%</strong></td><td style="text-align:right">45.1%</td><td style="text-align:right">—</td></tr></tbody></table>
+<p>피처 18개 중 5개(28%)가 기여의 54.9% 를 차지한다. 다만 이 비중은 4.3절에서 설명한 시뮬레이터의 구조적 성질(명세의 상관 요건이 부도율 6.68% 에서 매우 강하다)을 반영하므로, "실제 대안 데이터가 전통 데이터보다 중요하다"는 근거로 읽으면 안 된다. <strong>의미가 있는 것은 아래의 집단 간 비교다.</strong></p>
+<h3 id="07_xai-h6">개별 고객 수준: 씬파일러일수록 대안 피처에 기댄다</h3>
+<p>평균 |SHAP| 은 표본 전체를 뭉뚱그린 값이다. 고객 한 명 한 명의 설명에서 대안 피처가 얼마나 등장하는지를 따로 셌다.</p>
+<table><thead><tr><th>세그먼트</th><th style="text-align:right">n</th><th style="text-align:right">Top 5 중 대안 피처 수 (평균)</th><th style="text-align:right">1위가 대안 피처인 비율</th></tr></thead><tbody><tr><td>전체</td><td style="text-align:right">2,000</td><td style="text-align:right">3.02</td><td style="text-align:right">65.2%</td></tr><tr><td>일반</td><td style="text-align:right">1,425</td><td style="text-align:right">2.95</td><td style="text-align:right">64.1%</td></tr><tr><td>씬파일러</td><td style="text-align:right">575</td><td style="text-align:right"><strong>3.20</strong></td><td style="text-align:right"><strong>67.8%</strong></td></tr><tr><td>└ <code>history_only</code></td><td style="text-align:right">174</td><td style="text-align:right">3.00</td><td style="text-align:right">—</td></tr><tr><td>└ <code>missing_only</code></td><td style="text-align:right">228</td><td style="text-align:right">3.26</td><td style="text-align:right">—</td></tr><tr><td>└ <code>both</code></td><td style="text-align:right">173</td><td style="text-align:right"><strong>3.34</strong></td><td style="text-align:right">—</td></tr></tbody></table>
+<p class="note">각주: 행마다 |SHAP| 상위 5개 피처를 뽑아 대안 피처 개수를 셌다. test 2,000행 표본.</p>
+<p>씬파일러 유형별 순서 <code>history_only &lt; missing_only &lt; both</code> 는 5.4절의 uplift 순서 (+0.1013 &lt; +0.1681 &lt; +0.1883)와 <strong>같다.</strong> 전통 피처의 정보가 적은 고객일수록 모델이 대안 피처를 더 많이 쓰고, 그만큼 대안 데이터를 넣었을 때의 성능 이득도 크다. 성능(5장)과 설명(6장)이 같은 구조를 가리킨다.</p>
+<h3 id="07_xai-h7">결측 플래그 3종의 기여가 정확히 0 인 이유</h3>
+<p>연체 결측 플래그는 학습 피처에 포함돼 있지만 SHAP 이 0.0000 이다. 트리가 이 플래그로 한 번도 분기하지 않았다는 뜻이다. 연체 컬럼 자체가 결측일 때 센티넬 <code>−1</code> 을 갖기 때문에(6.6절), <code>연체 횟수 &lt; 0</code> 이라는 분기 하나로 같은 정보를 얻을 수 있었던 것으로 보인다. 정보가 사라진 것이 아니라 <strong>연체 컬럼의 SHAP 값에 합쳐져 있다.</strong></p>
+<hr>
+<h2 id="07_xai-h8">6.3 Dependence Plot: 대안 1 + 전통 1</h2>
+<p>명세는 최소 2개 변수의 Dependence Plot 을 요구한다. 형태가 다른 두 피처를 대비하려고 대안 1위(<code>telecom_payment_rate</code>)와 전통 1위(<code>RevolvingUtilization</code>)를 골랐다 (<code>config.explainer.dependence_features</code>).</p>
+<h3 id="07_xai-h9"><code>telecom_payment_rate</code>: 거의 직선</h3>
+<figure><img src="report_assets/shap_dependence_telecom_payment_rate.png" alt="telecom_payment_rate Dependence"><figcaption>telecom_payment_rate Dependence</figcaption></figure>
+<table><thead><tr><th>지표</th><th style="text-align:right">값</th></tr></thead><tbody><tr><td>피처값–SHAP 순위상관 (Spearman)</td><td style="text-align:right"><strong>−0.957</strong></td></tr><tr><td>선형 기울기 (표준화 1SD 당)</td><td style="text-align:right">−0.941 로그 오즈</td></tr><tr><td>선형 기울기 (원 단위 1%p 당)</td><td style="text-align:right">−0.073 로그 오즈</td></tr><tr><td>SHAP 범위</td><td style="text-align:right">−3.20 ~ +2.01</td></tr></tbody></table>
+<p class="note">각주: test 2,000행 표본. x 축은 표준화 값(원 단위 표준편차 0.1294).</p>
+<p>납부율이 오를수록 부도 확률 기여가 <strong>단조롭고 거의 선형으로</strong> 내려간다. 색(상호작용 피처로 자동 선택된 <code>utility_payment_rate</code>)이 세로로 갈리지 않고 <strong>x 축을 따라</strong> 파랑에서 빨강으로 바뀐다. 두 피처가 강하게 함께 움직인다는 뜻이며, ADR-001 v2 의 공유 잠재요인("성실한 사람은 통신비도 공과금도 잘 낸다")이 그림에 그대로 드러난 것이다. 뚜렷한 상호작용은 보이지 않는다.</p>
+<h3 id="07_xai-h10"><code>RevolvingUtilization</code>: 이상치 때문에 x 축을 잘라야 한다</h3>
+<figure><img src="report_assets/shap_dependence_RevolvingUtilizationOfUnsecuredLines.png" alt="RevolvingUtilization Dependence (원 단위, x 축 99 백분위 절단)"><figcaption>RevolvingUtilization Dependence (원 단위, x 축 99 백분위 절단)</figcaption></figure>
+<p class="note">그림 각주: x 축은 <strong>원 단위</strong>이며 <strong>99 백분위(3.46)에서 잘랐다.</strong> 표본 2,000개 중 이를 넘는 <strong>이상치 20개는 그림에서 제외</strong>했다(SHAP 계산에는 포함). 제외된 점의 SHAP 은 0.01 ~ 1.06 으로 그림 오른쪽 평탄 구간과 같은 범위다.</p>
+<p>처음에는 이 피처도 telecom 과 같은 방식(표준화 값, 전 범위)으로 그렸는데, 점 거의 전부가 x = 0 근처 세로 한 줄에 몰려 관계가 보이지 않았다.</p>
+<table><thead><tr><th>지표 (표준화 축으로 그렸을 때)</th><th style="text-align:right">값</th></tr></thead><tbody><tr><td>표준화 값 1~99 백분위</td><td style="text-align:right">−0.020 ~ −0.011</td></tr><tr><td>|z| &gt; 1 인 점</td><td style="text-align:right">2,000개 중 <strong>2개</strong> (최대 z = 74.6)</td></tr><tr><td>원 단위 중앙값 / 99 백분위 / 최대</td><td style="text-align:right">0.144 / 3.46 / <strong>29,110</strong></td></tr></tbody></table>
+<p>GMSC 원본의 극단 이상치(149,999행 기준 소진율 최대 50,708, z = 203.0, 3.4절)가 표준화 축을 늘려, 표본의 98% 가 폭 0.009 의 구간에 갇힌 것이다. 원 단위로 바꾸고 99 백분위에서 자르자 관계가 드러났다.</p>
+<table><thead><tr><th>소진율 구간</th><th style="text-align:right">n</th><th style="text-align:right">평균 SHAP</th></tr></thead><tbody><tr><td>0 ~ 0.1</td><td style="text-align:right">892</td><td style="text-align:right">−1.096</td></tr><tr><td>0.1 ~ 0.5</td><td style="text-align:right">551</td><td style="text-align:right">−0.314</td></tr><tr><td>0.5 ~ 1.0</td><td style="text-align:right">443</td><td style="text-align:right">+0.608</td></tr><tr><td>1.0 ~ 3.46</td><td style="text-align:right">94</td><td style="text-align:right">+0.687</td></tr><tr><td>3.46 초과 (그림에서 제외)</td><td style="text-align:right">20</td><td style="text-align:right">0.01 ~ 1.06 (범위)</td></tr></tbody></table>
+<p class="note">각주: test 2,000행 표본, 구간 상한 포함. 피처값–SHAP 순위상관(Spearman) +0.897, SHAP 범위 −2.46 ~ +1.12.</p>
+<p><strong>한도의 100% 까지는 가파르게 오르다가 그 뒤로는 평탄하다.</strong> 소진율 10% 이하인 고객은 부도 확률 기여가 크게 음수(−1.10)이고, 한도를 거의 다 쓰면 양수로 돌아선다. 한도를 넘겨 쓴 뒤로는 더 오르지 않는다. telecom 의 직선과 뚜렷이 다른 <strong>포화형 비선형 관계</strong>다. 색(<code>regular_payment_count</code>)은 세로로 갈리지 않아 뚜렷한 상호작용은 보이지 않는다.</p>
+<p>두 그림의 대비는 이렇게 정리된다. 대안 피처는 시뮬레이터가 정규분포 기반으로 생성해 <strong>매끄러운 선형 관계</strong>를 갖고, 전통 피처는 실제 금융 데이터의 <strong>두꺼운 꼬리와 포화</strong>를 그대로 안고 있다.</p>
+<h3 id="07_xai-h11">역설적인 부호: 소득이 높으면 불리하다?</h3>
+<p>Summary Plot 을 다시 보면 설명하기 어려운 점이 두 개 있다. <code>MonthlyIncome</code> 과 <code>age</code> 는 <strong>값이 클수록(빨강) SHAP 이 양수, 즉 부도 확률을 올린다.</strong> 원 데이터에서는 반대다.</p>
+<table><thead><tr><th>피처</th><th style="text-align:right">원 데이터: 피처–부도 상관</th><th style="text-align:right">전통 전용 모델: 피처–SHAP</th><th style="text-align:right"><strong>통합 모델: 피처–SHAP</strong></th></tr></thead><tbody><tr><td><code>MonthlyIncome</code></td><td style="text-align:right">−0.062</td><td style="text-align:right">−0.516</td><td style="text-align:right"><strong>+0.769</strong></td></tr><tr><td><code>age</code></td><td style="text-align:right">−0.113</td><td style="text-align:right">−0.865</td><td style="text-align:right"><strong>+0.448</strong></td></tr><tr><td><code>NumberOfOpenCreditLinesAndLoans</code></td><td style="text-align:right">−0.033</td><td style="text-align:right">+0.710</td><td style="text-align:right">+0.831</td></tr></tbody></table>
+<p class="note">각주: 모두 Spearman 순위상관. 원 데이터 열은 train 104,999행, 모델 열은 test 2,000행 표본. 전통 전용 모델은 챔피언과 같은 하이퍼파라미터로 <code>traditional_only</code> 13개 피처에 재학습했다 (같은 절차로 통합 모델을 재학습하면 챔피언의 +0.769 / +0.448 이 그대로 재현된다).</p>
+<p><strong>대안 피처가 들어가면서 부호가 뒤집혔다.</strong> 원인은 4장의 생성식에 있다.</p>
+<pre><code>대안 피처 = ρ·(타겟 신호) + … + (소득·연령 신호: nuisance = 0.7·소득 + 0.3·연령)</code></pre>
+<p>대안 피처 값에는 타겟 신호와 소득·연령 신호가 섞여 있다. 같은 통신비 납부율 85% 라도 소득이 높은 사람이라면 그 85% 중 상당 부분이 "소득 덕분"으로 설명되고, <strong>남는 성실성 신호는 작다.</strong> 모델은 이를 학습해 대안 피처의 좋은 값에서 소득·연령 몫을 빼는 방향으로 소득·연령에 양의 기여를 준다. 통계에서 말하는 <strong>설명 소거(explaining away)</strong> 효과다. <code>NumberOfOpenCreditLines</code> 는 두 모델에서 부호가 같으므로 이 효과와 무관하다.</p>
+<p>이 현상은 시뮬레이터의 산물이지만 실무에 주는 경고는 실재한다. <strong>SHAP 은 모델이 학습한 관계를 충실히 보여줄 뿐, 그 관계가 인과적으로 타당한지는 말해주지 않는다.</strong> 이를 고객에게 "월 소득이 많아서 불리합니다"라고 전달하면 설명은 정확하되 납득할 수 없는 문장이 된다. 6.5절의 방향 일치 검증이 이 경우를 잡아낸다.</p>
+<hr>
+<h2 id="07_xai-h12">6.4 지역 해석: 네 사례의 Waterfall</h2>
+<p><code>config.explainer.samples</code> 에 네 가지 조건을 두고, 조건 구간의 중앙에 가장 가까운 test 고객을 골랐다.</p>
+<table><thead><tr><th>사례</th><th>세그먼트</th><th>연령대</th><th style="text-align:right">실제 부도</th><th style="text-align:right">p_default</th><th style="text-align:right">f(x)</th><th>점수 / 등급</th><th>결정</th></tr></thead><tbody><tr><td>극단 거절 · 씬파일러</td><td><code>both</code></td><td>20-34</td><td style="text-align:right">1</td><td style="text-align:right">0.9748</td><td style="text-align:right">+3.655</td><td>25 / E</td><td>거절</td></tr><tr><td>극단 거절 · 일반</td><td>일반</td><td>35-54</td><td style="text-align:right">1</td><td style="text-align:right">0.9751</td><td style="text-align:right">+3.668</td><td>25 / E</td><td>거절</td></tr><tr><td><strong>경계 거절</strong></td><td><strong><code>both</code></strong></td><td>55+</td><td style="text-align:right"><strong>0</strong></td><td style="text-align:right"><strong>0.3750</strong></td><td style="text-align:right"><strong>−0.511</strong></td><td>625 / C</td><td><strong>거절</strong></td></tr><tr><td>경계 승인</td><td>일반</td><td>20-34</td><td style="text-align:right">0</td><td style="text-align:right">0.2499</td><td style="text-align:right">−1.099</td><td>750 / B</td><td>승인</td></tr></tbody></table>
+<p class="note">각주: 조건 구간 — 극단 p ∈ [0.95, 1.01), 경계 거절 [0.30, 0.45), 경계 승인 [0.20, 0.30). 임계값의 로그 오즈는 −0.847. 점수·등급은 ADR-003.</p>
+<h3 id="07_xai-h13">극단 사례: 설명은 맞지만 쓸모가 없다</h3>
+<figure><img src="report_assets/shap_waterfall_extreme_rejected_thin_filer.png" alt="극단 거절 · 씬파일러"><figcaption>극단 거절 · 씬파일러</figcaption></figure>
+<table><thead><tr><th style="text-align:right">순위</th><th>씬파일러 (p=0.9748) 거절 사유</th><th style="text-align:right">기여도</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td>소비 일관성 점수가 0%로, 동일 연령대 평균(39%) 대비 낮습니다</td><td style="text-align:right">−1.57</td></tr><tr><td style="text-align:right">2</td><td>통신비 정상납부율이 51%로, 동일 연령대 평균(62%) 대비 낮습니다</td><td style="text-align:right">−1.07</td></tr><tr><td style="text-align:right">3</td><td>정기결제 건수가 1건으로, 동일 연령대 평균(10건) 대비 적습니다</td><td style="text-align:right">−0.79</td></tr><tr><td style="text-align:right">4</td><td>공과금 납부율이 53%로, 동일 연령대 평균(62%) 대비 낮습니다</td><td style="text-align:right">−0.46</td></tr><tr><td style="text-align:right">5</td><td>앱 접속 빈도가 1회로, 동일 연령대 평균(16회) 대비 적습니다</td><td style="text-align:right">−0.31</td></tr></tbody></table>
+<figure><img src="report_assets/shap_waterfall_extreme_rejected_normal.png" alt="극단 거절 · 일반"><figcaption>극단 거절 · 일반</figcaption></figure>
+<table><thead><tr><th style="text-align:right">순위</th><th>일반 (p=0.9751) 거절 사유</th><th style="text-align:right">기여도</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td>최근 90일 연체 횟수가 1회로, 동일 연령대 평균(0회) 대비 많습니다</td><td style="text-align:right">−1.35</td></tr><tr><td style="text-align:right">2</td><td>소비 일관성 점수가 1%로, 동일 연령대 평균(49%) 대비 낮습니다</td><td style="text-align:right">−0.87</td></tr><tr><td style="text-align:right">3</td><td>공과금 납부율이 61%로, 동일 연령대 평균(75%) 대비 낮습니다</td><td style="text-align:right">−0.44</td></tr><tr><td style="text-align:right">4</td><td>통신비 정상납부율이 63%로, 동일 연령대 평균(75%) 대비 낮습니다</td><td style="text-align:right">−0.42</td></tr><tr><td style="text-align:right">5</td><td>30-59일 연체 횟수가 1회로, 동일 연령대 평균(0회) 대비 많습니다</td><td style="text-align:right">−0.29</td></tr></tbody></table>
+<p class="note">각주: <code>rejection_reasons_sample.json</code>. 기여도는 <code>shap_contribution</code>(음수 = 불리).</p>
+<p>두 사례의 차이는 분명하다. <strong>씬파일러의 거절 사유는 5개 전부 대안 피처</strong>다. 전통 피처에 판단 근거가 없으니 모델이 대안 피처만으로 판단했다. 일반 고객은 1위가 90일 연체, 5위가 30-59일 연체로 전통과 대안이 섞인다. 6.2절의 집단 비교를 사례 하나가 그대로 보여준다.</p>
+<p>그러나 이 설명들은 <strong>XAI 로서의 가치가 거의 없다.</strong> 두 고객은 로그 오즈 +3.66 으로 임계값(−0.85)과 4.5 이상 떨어져 있다. 소비 일관성 0%, 90일 연체 이력이 있는 고객이 거절된 이유는 설명하지 않아도 자명하고, 현실적인 한두 가지 변화로 결정이 바뀌지도 않는다. 설명가능성이 필요한 곳은 판단이 갈리는 경계다. 초기 구현은 극단 사례(당시 데이터에서 p=0.9997)만 저장했는데, 이 이유로 경계 구간 사례를 추가했다.</p>
+<h3 id="07_xai-h14">경계 거절: 설명이 행동으로 이어지는 사례</h3>
+<figure><img src="report_assets/shap_waterfall_borderline_rejected.png" alt="경계 거절"><figcaption>경계 거절</figcaption></figure>
+<p>이 고객은 <strong>거래 이력 11개월, 연체 기록이 없는 <code>both</code> 유형 씬파일러</strong>(66세)이고, <strong>실제로는 부도가 나지 않았다.</strong> 모델은 부도 확률 0.3750 으로 임계값 0.30 을 넘겨 거절했다. 정상 고객을 잘못 거절한 사례다.</p>
+<p>로그 오즈로 보면 <code>f(x) = −0.511</code>, 임계값 −0.847 과의 차이는 <strong>0.337</strong> 에 불과하다. 워터폴에서 가장 큰 막대는 오히려 유리한 쪽이다. 신용한도 소진율이 0.94% 로 매우 낮아 −1.38 만큼 부도 확률을 끌어내렸다. 그 이득을 여러 개의 작은 불리 요인이 조금씩 되돌렸다.</p>
+<table><thead><tr><th style="text-align:right">순위</th><th>거절 사유 (<code>POST /explain</code> 응답)</th><th style="text-align:right">기여도</th><th>방향 일치</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td>월 소득이 13,300으로, 동일 연령대 평균(6,579) 대비 많습니다 — 다른 항목과의 조합에 따른 영향입니다</td><td style="text-align:right">−0.40</td><td>✗</td></tr><tr><td style="text-align:right">2</td><td>보유 신용계좌 수가 20개로, 동일 연령대 평균(9개) 대비 많습니다 — 다른 항목과의 조합에 따른 영향입니다</td><td style="text-align:right">−0.31</td><td>✗</td></tr><tr><td style="text-align:right">3</td><td>앱 접속 빈도가 6회로, 동일 연령대 평균(23회) 대비 적습니다</td><td style="text-align:right">−0.21</td><td>✓</td></tr><tr><td style="text-align:right">4</td><td>30-59일 연체 횟수 기록이 없습니다. 동일 연령대 평균은 0회입니다</td><td style="text-align:right">−0.21</td><td>✓</td></tr><tr><td style="text-align:right">5</td><td>소비 일관성 점수가 25%로, 동일 연령대 평균(56%) 대비 낮습니다</td><td style="text-align:right">−0.17</td><td>✓</td></tr></tbody></table>
+<p class="note">각주: 대시보드 기본 입력(<code>config.dashboard.default_input</code>, test idx 20837 과 동일 고객)으로 <code>POST /explain</code> 을 호출한 응답. 배치 산출물 <code>rejection_reasons_sample.json</code> 과 문장까지 일치한다.</p>
+<p>1·2위는 6.3절의 설명 소거 효과와 씬파일러 노이즈 컬럼(ADR-001)에서 온 기여라 문장만으로는 납득하기 어렵다. 시스템은 이를 숨기지 않고 <strong>방향 불일치 표지</strong>를 붙였다.</p>
+<h4 id="07_xai-h15">무엇을 바꾸면 승인되는가</h4>
+<p>거절 사유 Top 5 는 "현재 값이 결정을 어느 쪽으로 얼마나 밀었는가"에 답한다. 고객이 실제로 궁금한 것은 "무엇을 바꾸면 결정이 바뀌는가"다. 같은 입력에서 대안 피처만 바꿔 <code>POST /predict</code> 를 다시 호출했다.</p>
+<table><thead><tr><th>변경</th><th>통신비 / 공과금</th><th style="text-align:right">p_default</th><th>결정</th></tr></thead><tbody><tr><td>없음 (현재)</td><td>68% / 67%</td><td style="text-align:right">0.3750</td><td>거절</td></tr><tr><td><strong>통신비·공과금 각 +2%p</strong></td><td><strong>70% / 69%</strong></td><td style="text-align:right"><strong>0.2922</strong></td><td><strong>승인</strong></td></tr><tr><td>통신비만 +3%p</td><td>71% / 67%</td><td style="text-align:right">0.2617</td><td>승인</td></tr><tr><td>공과금만 +7%p</td><td>68% / 74%</td><td style="text-align:right">0.2415</td><td>승인</td></tr><tr><td>통신비·공과금 각 +5%p</td><td>73% / 72%</td><td style="text-align:right">0.1780</td><td>승인</td></tr><tr><td>둘 다 55+ 연령대 평균으로</td><td>78% / 78%</td><td style="text-align:right">0.0552</td><td>승인</td></tr><tr><td>(참고) 앱 접속 빈도 6 → 23회</td><td>68% / 67%</td><td style="text-align:right">0.2502</td><td>승인</td></tr><tr><td>(참고) 소비 일관성 25% → 56%</td><td>68% / 67%</td><td style="text-align:right">0.1776</td><td>승인</td></tr></tbody></table>
+<p class="note">각주: 표시 이외의 입력은 전부 기본 입력과 동일. 최소 변화량은 1%p 격자로 탐색했다 (통신비·공과금 동시 +1%p 는 거절). 사례 분석이며 API 기능으로 구현하지는 않았다.</p>
+<p><strong>통신비와 공과금 납부율을 각각 2%p 만 올리면 승인된다.</strong> 연체 기록도 긴 거래 이력도 없는 씬파일러가 자기 행동으로 바꿀 수 있는 항목이다. 이것이 이 프로젝트가 경계 사례를 따로 저장한 이유이고, 대시보드의 기본 입력을 이 고객으로 둔 이유다.</p>
+<p>다만 이 표에서 두 가지를 정직하게 적어둔다.</p>
+<ul><li><strong>통신비·공과금은 거절 사유 Top 5 에 없다.</strong> 통신비 납부율의 현재 SHAP 기여는 오히려 유리 (−0.26, 부도 관점)하다. Top 5 는 <strong>귀속</strong>(누가 밀었나)이고 위 표는 <strong>반사실</strong>(무엇을 바꾸면 되나)이라 서로 다른 질문이다. 가장 효율적인 행동 수단은 기울기가 가장 가파른 피처이며 (6.3절 telecom 1%p 당 −0.073, 이 고객 근처에서는 더 가파르다), Top 5 만으로는 그것을 알 수 없다.</li><li><strong>유일한 경로도 아니다.</strong> 경계에 가까운 고객이라 앱 접속 빈도나 소비 일관성 하나만 올려도 승인된다. 명세 보너스 과제 2(Counterfactual Explanation)를 구현한다면 이 탐색을 자동화하고, 고객이 바꿀 수 있는 피처로만 후보를 제한해야 한다.</li></ul>
+<h3 id="07_xai-h16">경계 승인: 같은 문장 틀, 다른 방향</h3>
+<figure><img src="report_assets/shap_waterfall_borderline_approved.png" alt="경계 승인"><figcaption>경계 승인</figcaption></figure>
+<table><thead><tr><th style="text-align:right">순위</th><th>승인 사유</th><th style="text-align:right">기여도</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td>소비 일관성 점수가 57%로, 동일 연령대 평균(39%) 대비 높습니다</td><td style="text-align:right">+0.88</td></tr><tr><td style="text-align:right">2</td><td>연령이 30세로, 동일 연령대 평균(29세) 대비 많습니다</td><td style="text-align:right">+0.72</td></tr><tr><td style="text-align:right">3</td><td>통신비 정상납부율이 73%로, 동일 연령대 평균(62%) 대비 높습니다</td><td style="text-align:right">+0.56</td></tr><tr><td style="text-align:right">4</td><td>30-59일 연체 횟수가 0회로, 동일 연령대 평균(1회) 대비 적습니다</td><td style="text-align:right">+0.35</td></tr><tr><td style="text-align:right">5</td><td>최근 90일 연체 횟수가 0회로, 동일 연령대 평균(1회) 대비 적습니다</td><td style="text-align:right">+0.23</td></tr></tbody></table>
+<p><code>contributing_factors(adverse=False)</code> 는 부도 확률을 가장 크게 낮춘 요인을 같은 틀로 만든다. 1·3위가 대안 피처다.</p>
+<p>2위는 주의해서 읽어야 한다. "연령이 30세로 동일 연령대 평균보다 많아서" 유리한 것이 아니다. SHAP 기여 +0.72 는 <strong>전체 표본 기준값</strong>에 대한 기여이고, 30세는 전체로 보면 젊은 편이라 6.3절의 설명 소거 효과로 유리하게 작용했다. 문장의 비교 기준(동일 연령대 평균)과 SHAP 의 기준(전체 기대값)이 다르기 때문에 생긴 <strong>우연한 일치</strong>다. 방향 일치 검증은 부호 모순만 잡을 수 있어 이 경우는 통과했다(6.5절).</p>
+<p>연령은 GMSC 원본 피처라 학습에 포함된다. ADR-008 이 제외한 것은 구간화한 보호 속성 <code>age_group</code> 이다. 연령이 승인 사유 2위로 고객에게 제시되는 것은 7장의 연령대 격차와 같은 뿌리를 가진 문제이며, 실서비스라면 설명 문구에서 제외하거나 별도 검토가 필요하다.</p>
+<hr>
+<h2 id="07_xai-h17">6.5 거절 사유 생성 로직</h2>
+<h3 id="07_xai-h18">처리 흐름</h3>
+<pre><code>① 모델 입력(스케일링된 값)으로 SHAP 계산          ← 표시값으로 계산하면 순위가 틀어진다 (9장 #1)
+② 부도 확률 기여 φ 가 큰 순서로 Top 5 선택
+③ 원 단위 값(display_row)을 따로 받아 표시
+④ reference_value = 동일 연령대 평균             ← 씬파일러 센티넬 행 제외 (9장 #2)
+⑤ 단위별 문장 템플릿 + 한글 조사 선택
+⑥ 방향 일치 검증 → 불일치면 단서 문구 추가</code></pre>
+<p>모델 입력과 표시값을 분리한 것이 핵심이다. SHAP 은 학습 때와 같은 스케일의 입력에서 계산해야 하고, 문장에는 "68%" 같은 원래 단위가 필요하다. 초기 구현은 역스케일한 값을 모델에 넣어 워터폴과 거절 사유가 서로 다른 피처를 가리켰다(9장 #1).</p>
+<h3 id="07_xai-h19">응답 필드</h3>
+<table><thead><tr><th>필드</th><th>명세 §3 필수</th><th>내용</th></tr></thead><tbody><tr><td><code>feature</code></td><td>✓</td><td>변수명</td></tr><tr><td><code>current_value</code></td><td>✓</td><td>원 단위 현재값. 기록 없음이면 센티넬 −1</td></tr><tr><td><code>shap_contribution</code></td><td>✓</td><td>신용도 관점 기여도 (음수 = 불리)</td></tr><tr><td><code>explanation</code></td><td>✓</td><td>자연어 설명</td></tr><tr><td><code>rank</code>, <code>feature_name_kr</code></td><td></td><td>순위, 한글명 (<code>config/feature_names.yaml</code>)</td></tr><tr><td><code>reference_value</code></td><td></td><td>동일 연령대 평균</td></tr><tr><td><code>shap_value_default</code></td><td></td><td>SHAP 원본 (양수 = 불리)</td></tr><tr><td><code>direction_consistent</code></td><td></td><td>부호–방향 일치 여부</td></tr></tbody></table>
+<h3 id="07_xai-h20">단위별 문장 템플릿</h3>
+<table><thead><tr><th>단위</th><th>표기</th><th>비교어</th><th>대상 피처 예</th></tr></thead><tbody><tr><td><code>percent</code></td><td><code>68%</code></td><td>높습니다 / 낮습니다</td><td>통신비·공과금 납부율, 소비 일관성</td></tr><tr><td><code>ratio</code></td><td><code>0.20</code></td><td>높습니다 / 낮습니다</td><td>신용한도 소진율, 부채비율</td></tr><tr><td><code>count</code></td><td><code>6회</code>, <code>20개</code>, <code>1건</code>, <code>1명</code></td><td>많습니다 / 적습니다</td><td>연체 횟수, 계좌 수, 정기결제</td></tr><tr><td><code>amount</code></td><td><code>13,300</code></td><td>많습니다 / 적습니다</td><td>월 소득 (원 데이터가 미국 기준이라 통화 단위를 붙이지 않음)</td></tr><tr><td><code>years</code></td><td><code>30세</code></td><td>많습니다 / 적습니다</td><td>연령</td></tr><tr><td><code>flag</code></td><td>해당 / 비해당</td><td>—</td><td>결측 플래그</td></tr></tbody></table>
+<p>조사는 마지막 글자의 받침으로 고른다. 숫자는 한글로 읽었을 때의 받침을 쓴다 (<code>13,300으로</code>, <code>20개로</code>, <code>68%로</code>). 이를 틀리면 "소득이 13,300로" 같은 문장이 나와 자동 생성 티가 난다.</p>
+<h3 id="07_xai-h21">방향 일치 검증</h3>
+<pre><code>유리한 값인가 = (현재값 ≥ 참조값)   if higher_is_better else (현재값 &lt; 참조값)
+일치          = (shap_contribution ≥ 0) == 유리한 값인가</code></pre>
+<p><code>higher_is_better</code> 는 피처마다 <code>feature_names.yaml</code> 에 정의했다. 불일치하면 "— 다른 항목과의 조합에 따른 영향입니다"를 붙여, <strong>단순 비교로 설명되지 않는 기여</strong>임을 밝힌다. 경계 거절 사례의 1·2위가 여기에 해당한다.</p>
+<p>이 검증에는 한계가 있다. 비교 기준(동일 연령대 평균)과 SHAP 기준(전체 기대값)이 다르므로 <strong>부호가 우연히 맞으면 통과한다</strong>(경계 승인 사례의 연령). 검증이 잡는 것은 "명백히 모순된 문장"뿐이며, 모든 문장이 인과적으로 옳다는 보증은 아니다.</p>
+<hr>
+<h2 id="07_xai-h22">6.6 씬파일러의 '기록 없음'은 설명에서도 별도 분기를 요구한다</h2>
+<h3 id="07_xai-h23">설계: 결측은 정보 결손 신호다</h3>
+<p>씬파일러의 연체 3컬럼 결측은 중앙값(0회)으로 채우지 않았다. 채우면 <strong>연체 기록이 없는 씬파일러가 연체 한 번 없는 우량 고객으로 위장</strong>되기 때문이다. 대신 센티넬 <code>−1</code> 과 결측 플래그로 보존했다 (3장, <code>config.preprocess</code>). 모델은 이 정보를 실제로 쓴다. 경계 거절 사례의 4위가 "30-59일 연체 기록이 없음"이고 기여도는 <strong>−0.21, 불리</strong>다. 기록이 없다는 사실 자체가 위험 신호로 학습됐다. 씬파일러 문제의 본질이 모델 안에 그대로 들어가 있다.</p>
+<h3 id="07_xai-h24">결과: 설명 생성의 세 곳에서 분기가 필요했다</h3>
+<p>전처리에서 내린 이 결정은 설명 단계까지 따라왔다. 센티넬을 일반 숫자로 다루면 세 곳에서 틀린 문장이 나온다.</p>
+<table><thead><tr><th>위치</th><th>분기가 없을 때</th><th>조치</th></tr></thead><tbody><tr><td>참조 평균</td><td>센티넬이 평균에 섞여 <strong>"동일 연령대 평균 −0회"</strong></td><td>플래그가 선 행을 평균 계산에서 제외</td></tr><tr><td>문장 템플릿</td><td><strong>"30-59일 연체 횟수가 −1회로, 평균 대비 적습니다"</strong> — 연체가 적은 우량 고객처럼 읽힌다</td><td>"기록이 없습니다" 문장으로 분기</td></tr><tr><td>방향 검증</td><td>−1 &lt; 평균 이므로 "유리한 값"으로 판정 → 불리한 기여와 모순 → 오탐 표지</td><td>기록 없음이면 검증 생략</td></tr></tbody></table>
+<p>두 번째 행이 가장 위험하다. 문장은 문법적으로 멀쩡하고 수치도 틀리지 않았는데, 고객은 정반대로 이해한다. <strong>정보가 없어서 불리하다</strong>는 사실을 <strong>연체가 적어서 유리하다</strong>로 뒤집어 전달한다.</p>
+<h3 id="07_xai-h25">입력 경로가 둘이라 두 번 고쳐야 했다</h3>
+<p>'기록 없음'은 두 가지 형태로 설명 모듈에 들어온다.</p>
+<table><thead><tr><th>경로</th><th>입력 형태</th><th>수정 시점</th></tr></thead><tbody><tr><td><code>POST /explain</code></td><td>요청 JSON 의 <code>null</code> → <code>None</code></td><td>13세션 (<code>float(None)</code> 500 오류와 함께)</td></tr><tr><td>배치 산출 (<code>run_explain</code>)</td><td>전처리를 거친 센티넬 <code>−1</code> + 플래그 <code>1</code></td><td><strong>17세션</strong> (이 장 작성 중 교차검증에서 발견)</td></tr></tbody></table>
+<p>13세션에는 API 경로만 고쳐졌고, 배치 산출물 <code>rejection_reasons_sample.json</code> 에는 "−1회로" 문장이 남아 있었다. 리포트에 인용하려고 두 경로의 출력을 대조하다가 발견했다. 현재는 표시 행의 결측 플래그를 함께 확인해 두 경로가 같은 문장을 낸다(9장 #12). 수치 산출물(SHAP 값, 전역 중요도, 워터폴 4종)은 재생성 전후 md5 가 동일하며, 바뀐 것은 해당 문장 1건뿐이다.</p>
+<hr>
+<h2 id="07_xai-h26">6.7 규제 대응: 신용정보법 제36조의2</h2>
+<p>신용정보법 제36조의2 는 개인신용평가 등이 <strong>자동화평가</strong>로 이루어진 경우, 신용정보주체가 평가 결과와 그 주요 기준, 기초정보의 개요에 대해 <strong>설명을 요구</strong>하고, 유리한 정보를 제출하거나 기초정보의 정정·삭제 및 <strong>재산출을 요구</strong>할 수 있도록 한다. 본 시스템의 대응을 정리하면 다음과 같다.</p>
+<table><thead><tr><th>법의 요구</th><th>본 시스템</th><th>상태</th></tr></thead><tbody><tr><td>평가 결과 설명</td><td><code>POST /predict</code> — 점수·등급·부도확률·승인 여부</td><td>구현</td></tr><tr><td>결과에 영향을 준 주요 기준</td><td><code>POST /explain</code> — 거절 사유 Top 5 자연어 + 전체 SHAP 값 + 기준값</td><td>구현</td></tr><tr><td>기초정보의 개요</td><td>각 사유의 <code>current_value</code> 와 <code>reference_value</code>(동일 연령대 평균)</td><td>구현</td></tr><tr><td>평가 체계 전반의 기준</td><td>전역 중요도 · Summary Plot (대시보드 XAI 탭)</td><td>구현</td></tr><tr><td>유리한 정보 제출 · 재산출</td><td>입력을 고쳐 <code>/predict</code> 재호출. <strong>무엇을 고치면 되는지</strong> 안내는 6.4절 수동 분석뿐</td><td>부분</td></tr><tr><td>이의제기 절차</td><td>—</td><td>범위 밖</td></tr></tbody></table>
+<p class="note">각주: 교육 목적의 대응 매핑이며 법적 요건 충족을 보증하지 않는다.</p>
+<p>법이 요구하는 것은 설명의 <strong>존재</strong>이지만, 이 장에서 본 오류들은 설명의 <strong>충실성</strong>이 따로 확보돼야 함을 보여준다. 이 프로젝트에서 설명의 충실성을 위해 내린 결정을 모으면 다음과 같다.</p>
+<table><thead><tr><th>결정</th><th>막는 문제</th><th>근거</th></tr></thead><tbody><tr><td>SHAP 을 모델 입력 스케일에서 계산</td><td>설명이 실제 판단과 다른 피처를 가리킴</td><td>9장 #1</td></tr><tr><td><code>class_weight</code> 채택 (SMOTE 기각)</td><td>실재하지 않는 합성 샘플로 학습한 관계를 거절 근거로 제시</td><td>5.5절, ADR-001 부기</td></tr><tr><td>XGBoost 채택</td><td>해석 도구 성숙도 — 성능은 LightGBM 과 동등</td><td>ADR-012</td></tr><tr><td>'기록 없음' 분기</td><td>정보 결손을 우량 신호로 뒤집어 전달</td><td>6.6절</td></tr><tr><td>방향 불일치 표지</td><td>납득 불가능한 기여를 단정적 문장으로 제시</td><td>6.5절</td></tr></tbody></table>
+<hr>
+<h2 id="07_xai-h27">이 장의 결론</h2>
+<ol><li><strong>모델 판단의 중심은 대안 피처이며, 씬파일러일수록 더 그렇다.</strong> 대안 5개가 전부 7위 안에 들고(1위 <code>telecom_payment_rate</code> 1.0272, 2위의 1.25배) 피처당 평균 |SHAP| 은 전통의 3.2배다. 고객별 Top 5 중 대안 피처 수는 <code>history_only</code> 3.00 &lt; <code>missing_only</code> 3.26 &lt; <code>both</code> 3.34 로 5장의 uplift 순서와 같다.</li><li><strong>XAI 의 가치는 경계 사례에서 드러난다.</strong> p=0.97 극단 거절은 설명이 자명하지만, p=0.375 로 거절된 씬파일러(실제 비부도)는 통신비·공과금 납부율을 각 2%p 올리면 승인된다(p=0.2922). 단 이 행동 수단은 거절 사유 Top 5 에 나오지 않는다 — 귀속과 반사실은 다른 질문이다.</li><li><strong>정확한 SHAP 값이 정확한 설명을 보장하지 않는다.</strong> 설명 소거로 "소득이 높아 불리" 같은 역설적 기여가 생기고, 씬파일러의 '기록 없음'을 숫자로 다루면 "연체 −1회로 적습니다"처럼 정보 결손을 우량 신호로 뒤집는다. 방향 일치 검증과 결측 분기로 막았고, 후자는 입력 경로마다 따로 고쳐야 했다.</li></ol></section>
+<section class="chapter" id="08_fairness"><h1 id="08_fairness-h0">7. 공정성 검증과 Bias Mitigation</h1>
+<p>이 장은 "보호 속성을 모델에 보여주지 않으면 차별이 사라지는가"라는 질문에 답한다. 결론부터 말하면 <strong>사라지지 않는다.</strong> 그리고 편향이 전파되는 경로가 두 종류로 나뉘며, 그중 하나는 원인을 제거하는 것 자체가 예측력 손실을 수반한다.</p>
+<p>관련 설계 결정: <a href="decisions/ADR-002-bias-injection.md">ADR-002 v3</a>, <a href="decisions/ADR-004-mitigation.md">ADR-004 v2</a>, <a href="decisions/ADR-008-protected-attributes.md">ADR-008</a></p>
+<blockquote><p><strong>이 장의 모든 측정 조건.</strong> 챔피언 모델 <code>xgboost | combined | class_weight</code>, test 세트 22,500행, 승인 임계값 <code>p_default &lt; 0.30</code>, <code>bias_ratio = 0.3</code>. 7.3절의 민감도 표는 각 <code>bias_ratio</code> 수준마다 데이터를 재생성하고 챔피언 조합을 다시 학습해 측정했으며, 조건을 표 각주에 다시 적었다.</p></blockquote>
+<hr>
+<h2 id="08_fairness-h1">7.1 실험 설계: 직접 경로를 차단한다</h2>
+<p>모델이 성별·연령을 입력으로 받으면 그것을 근거로 차별할 수 있다. 그건 자명하다. 이 프로젝트가 묻는 것은 그 다음이다. <strong>보호 속성을 아예 보여주지 않아도 집단 간 격차가 생기는가.</strong> 생긴다면 그 격차는 다른 피처를 경유해 전파된 것이므로 <strong>간접 편향(proxy discrimination)</strong> 이다.</p>
+<p>이를 확인하려고 세 겹으로 설계했다.</p>
+<h3 id="08_fairness-h2">① 편향은 피처에만, 타겟에는 넣지 않는다 (ADR-002)</h3>
+<p><code>female</code> 집단과 <code>20-34</code> 집단의 <code>telecom_payment_rate</code>, <code>utility_payment_rate</code> 관측치를 <code>bias_ratio × 0.3</code> 만큼 낮춘다(<code>bias_ratio = 0.3</code> 이면 집단당 0.09 하향, 두 집단에 모두 속하면 가산). <strong>실제 부도 라벨은 건드리지 않는다.</strong></p>
+<p>즉 이것은 <strong>측정 편향(measurement bias)</strong> 이다. 실제 위험은 같은데 관측만 나쁘게 찍힌다. 타겟을 왜곡했다면 관측된 격차가 "실제 위험 차이"인지 "편향"인지 구분할 수 없어 Mitigation 의 의미가 사라진다.</p>
+<p>편향 대상을 <code>20-34</code> 로 정한 것은 ADR-002 v2 의 개정 사항이다. 처음에는 <code>55+</code> 를 대상으로 했는데, 대안 피처가 연령을 신호원으로 쓰기 때문에(4장) <code>55+</code> 는 편향을 주입하지 않아도 이미 유리했다. 여기에 하향을 걸면 주입 편향이 자연 격차를 <strong>상쇄</strong>해 "편향을 키웠는데 격차가 줄어드는" 해석 불가능한 상황이 됐다.</p>
+<h3 id="08_fairness-h3">② 보호 속성을 학습 피처에서 제외한다 (ADR-008)</h3>
+<p><code>gender</code> 와 <code>age_group</code> 은 데이터프레임에 남지만 모델 입력 <code>X</code> 에는 들어가지 않는다. 모델이 쓰는 것은 전통 피처 13개(결측 플래그 3개 포함) + 대안 피처 5개, 총 18개다.</p>
+<p>보호 속성을 데이터에 남겨둔 이유는 두 가지다. 공정성 지표(DI Ratio, Equalized Odds) 계산에 필요하고, Fairlearn <code>ThresholdOptimizer</code> 의 <code>sensitive_features</code> 인자로 넘겨야 한다.</p>
+<p><code>credit_history_months</code>, <code>is_thin_filer</code>, <code>thin_filer_type</code> 도 같이 제외했다(4.6절).</p>
+<h3 id="08_fairness-h4">③ 완화는 후처리로 한다 (ADR-004)</h3>
+<p><code>ThresholdOptimizer</code> 는 학습된 모델을 그대로 두고 집단별 임계값만 바꾼다. 덕분에 <strong>같은 모델·같은 예측 확률 위에서</strong> 전/후를 비교할 수 있다. 재학습이 필요한 Reweighting 계열을 쓰면 전/후에서 모델 자체가 달라져 비교가 흐려진다.</p>
+<p><code>ThresholdOptimizer</code> 는 valid 세트로 적합하고 test 세트로 평가했다. 테스트 라벨을 임계값 조정에 쓰면 명세 §7 의 "테스트 데이터 라벨을 학습에 사용 금지" 조항을 위반한다.</p>
+<hr>
+<h2 id="08_fairness-h5">7.2 완화 전 측정</h2>
+<h3 id="08_fairness-h6">집단별 승인율</h3>
+<p>전체 승인율은 <strong>0.7940</strong> 이다.</p>
+<table><thead><tr><th>보호 속성</th><th>집단</th><th style="text-align:right">n</th><th style="text-align:right">승인율</th></tr></thead><tbody><tr><td>gender</td><td>male</td><td style="text-align:right">11,319</td><td style="text-align:right">0.8272</td></tr><tr><td></td><td><strong>female</strong> (불이익)</td><td style="text-align:right">11,181</td><td style="text-align:right"><strong>0.7603</strong></td></tr><tr><td>age_group</td><td>55+</td><td style="text-align:right">9,905</td><td style="text-align:right">0.8764</td></tr><tr><td></td><td>35-54</td><td style="text-align:right">9,742</td><td style="text-align:right">0.7438</td></tr><tr><td></td><td><strong>20-34</strong> (불이익)</td><td style="text-align:right">2,853</td><td style="text-align:right"><strong>0.6789</strong></td></tr></tbody></table>
+<p class="note">각주: 챔피언 <code>xgboost｜combined｜class_weight</code>, test 22,500행, 임계값 0.30, <code>bias_ratio=0.3</code>.</p>
+<figure><img src="report_assets/fairness_approval_rates.png" alt="집단별 승인율"><figcaption>집단별 승인율</figcaption></figure>
+<p><strong>20-34 집단의 승인율이 55+ 보다 19.7%p 낮다.</strong> 모델은 연령대를 입력으로 받은 적이 없다.</p>
+<h3 id="08_fairness-h7">DI Ratio — 정의에 따라 판정이 갈린다</h3>
+<p>명세 §1 의 용어 정의는 "보호 집단의 승인율을 비보호 집단의 승인율으로 나눈 비율"이다. 그런데 규제 실무에서 흔히 쓰는 4/5 규칙은 <strong>최저 승인율 집단 / 최고 승인율 집단</strong>으로 계산한다. 3집단인 <code>age_group</code> 에서 두 정의가 다른 값을 준다.</p>
+<table><thead><tr><th>보호 속성</th><th style="text-align:right">DI (명세 정의: 보호 / 나머지 합산)</th><th style="text-align:right">DI (관행: 최저 / 최고)</th><th>기준 0.8~1.25</th></tr></thead><tbody><tr><td>gender</td><td style="text-align:right">0.9191</td><td style="text-align:right">0.9191</td><td>둘 다 충족</td></tr><tr><td>age_group</td><td style="text-align:right">0.8375</td><td style="text-align:right"><strong>0.7747</strong></td><td><strong>명세 정의는 충족, 관행 정의는 미달</strong></td></tr></tbody></table>
+<p>같은 데이터에서 결론이 뒤집히므로 <strong>두 값을 모두 보고한다.</strong> API(<code>GET /fairness</code>)도 <code>di_ratio</code> 와 <code>di_ratio_min_max</code> 를 함께 반환한다.</p>
+<h3 id="08_fairness-h8">Equalized Odds</h3>
+<p><code>y=1</code> 은 부도, 예측 양성은 "부도로 예측(=거절)"이다.</p>
+<table><thead><tr><th>보호 속성</th><th>집단</th><th style="text-align:right">TPR</th><th style="text-align:right">FPR</th></tr></thead><tbody><tr><td>gender</td><td>female</td><td style="text-align:right">0.9113</td><td style="text-align:right">0.1918</td></tr><tr><td></td><td>male</td><td style="text-align:right">0.8763</td><td style="text-align:right">0.1222</td></tr><tr><td>age_group</td><td>20-34</td><td style="text-align:right">0.9097</td><td style="text-align:right">0.2464</td></tr><tr><td></td><td>35-54</td><td style="text-align:right">0.9148</td><td style="text-align:right">0.1946</td></tr><tr><td></td><td>55+</td><td style="text-align:right">0.8286</td><td style="text-align:right">0.0978</td></tr></tbody></table>
+<table><thead><tr><th>보호 속성</th><th style="text-align:right">TPR 차이</th><th style="text-align:right">FPR 차이</th><th>기준 ≤ 0.10</th></tr></thead><tbody><tr><td>gender</td><td style="text-align:right">0.0350</td><td style="text-align:right">0.0696</td><td>충족</td></tr><tr><td>age_group</td><td style="text-align:right">0.0862</td><td style="text-align:right"><strong>0.1487</strong></td><td><strong>FPR 위반</strong></td></tr></tbody></table>
+<p><code>age_group</code> 의 FPR 차이 0.1487 이 의미하는 것은 이렇다. <strong>실제로 부도가 아닌 고객을 잘못 거절하는 비율</strong>이 20-34 에서 24.6%, 55+ 에서 9.8% 다. 정상 고객이 부당하게 거절될 확률이 젊은 집단에서 2.5배 높다.</p>
+<hr>
+<h2 id="08_fairness-h9">7.3 <code>bias_ratio</code> 민감도: 두 종류의 간접 편향</h2>
+<p><code>bias_ratio</code> 를 0.0 / 0.1 / 0.2 / 0.3 으로 바꿔가며 각 수준에서 데이터를 재생성하고 챔피언 조합(<code>xgboost | combined | class_weight</code>)을 다시 학습해 측정했다.</p>
+<table><thead><tr><th style="text-align:right"><code>bias_ratio</code></th><th style="text-align:right">하향폭</th><th style="text-align:right">female</th><th style="text-align:right">male</th><th style="text-align:right"><strong>gender DI</strong></th><th style="text-align:right">20-34</th><th style="text-align:right">35-54</th><th style="text-align:right">55+</th><th style="text-align:right">age DI (명세)</th><th style="text-align:right"><strong>age DI (min/max)</strong></th><th style="text-align:right">전체 승인율</th><th style="text-align:right">test AUC</th></tr></thead><tbody><tr><td style="text-align:right">0.0</td><td style="text-align:right">0.000</td><td style="text-align:right">0.8055</td><td style="text-align:right">0.8031</td><td style="text-align:right"><strong>1.0030</strong></td><td style="text-align:right">0.6947</td><td style="text-align:right">0.7531</td><td style="text-align:right">0.8861</td><td style="text-align:right">0.8470</td><td style="text-align:right"><strong>0.7840</strong></td><td style="text-align:right">0.8043</td><td style="text-align:right">0.9497</td></tr><tr><td style="text-align:right">0.1</td><td style="text-align:right">0.030</td><td style="text-align:right">0.7805</td><td style="text-align:right">0.8215</td><td style="text-align:right">0.9502</td><td style="text-align:right">0.6838</td><td style="text-align:right">0.7508</td><td style="text-align:right">0.8844</td><td style="text-align:right">0.8358</td><td style="text-align:right">0.7732</td><td style="text-align:right">0.8011</td><td style="text-align:right">0.9485</td></tr><tr><td style="text-align:right">0.2</td><td style="text-align:right">0.060</td><td style="text-align:right">0.7698</td><td style="text-align:right">0.8283</td><td style="text-align:right">0.9293</td><td style="text-align:right">0.6803</td><td style="text-align:right">0.7494</td><td style="text-align:right">0.8825</td><td style="text-align:right">0.8332</td><td style="text-align:right">0.7709</td><td style="text-align:right">0.7992</td><td style="text-align:right">0.9465</td></tr><tr><td style="text-align:right">0.3</td><td style="text-align:right">0.090</td><td style="text-align:right">0.7603</td><td style="text-align:right">0.8272</td><td style="text-align:right"><strong>0.9191</strong></td><td style="text-align:right">0.6789</td><td style="text-align:right">0.7438</td><td style="text-align:right">0.8764</td><td style="text-align:right">0.8375</td><td style="text-align:right">0.7747</td><td style="text-align:right">0.7940</td><td style="text-align:right">0.9453</td></tr></tbody></table>
+<p class="note">각주: 각 행마다 시뮬레이션 → 전처리 → 챔피언 조합 재학습 → test 평가. 임계값 0.30. <code>src/fairness/sensitivity.py</code> 로 재현 가능. 원본은 <code>data/processed/fairness/bias_ratio_sensitivity.csv</code>.</p>
+<figure><img src="report_assets/bias_ratio_sensitivity.png" alt="bias_ratio 민감도"><figcaption>bias_ratio 민감도</figcaption></figure>
+<h3 id="08_fairness-h10">성별 = 주입한 측정 편향</h3>
+<p><code>bias_ratio = 0</code> 에서 <strong>gender DI 가 1.0030</strong> 이다. 편향을 주입하지 않으면 성별 간 승인율이 사실상 같다(female 0.8055 vs male 0.8031). 그리고 <code>bias_ratio</code> 를 올릴수록 DI 가 1.0030 → 0.9502 → 0.9293 → 0.9191 로 <strong>단조 감소</strong>한다.</p>
+<p>따라서 성별 격차는 <strong>전적으로 주입한 측정 편향이 대안 피처를 경유해 전파된 결과</strong>다. 명세 §4 가 요구한 "<code>bias_ratio</code> 를 조정하면 성별/연령대별 승인율 편향이 변경된다"는 이 표로 실증된다.</p>
+<p>성별은 GMSC 에 없어 <strong>무작위 50:50 으로 합성</strong>했다(ADR-002). 타겟과 독립이므로 편향을 주입하지 않으면 격차가 없는 것이 당연하다. 이 통제된 성질 덕분에 "주입한 만큼만 나타난다"를 깨끗하게 보일 수 있었다.</p>
+<h3 id="08_fairness-h11">연령대 = 피처에 내재한 상관</h3>
+<p>같은 표의 연령대 열은 전혀 다른 이야기를 한다. <strong><code>bias_ratio = 0</code> 에서 이미 min/max DI 가 0.7840</strong> 으로 4/5 규칙에 미달한다. 그리고 0.3 까지 올려도 0.7747 로 <strong>거의 변하지 않는다 (−0.009).</strong></p>
+<p>원인은 4장의 시뮬레이터 구조에 있다. 대안 피처는 소득·연령을 신호원으로 생성된다.</p>
+<pre><code>nuisance = 0.7 · z(log1p(MonthlyIncome)) + 0.3 · z(age)</code></pre>
+<p>연령이 높을수록 <code>nuisance</code> 가 커지고 대안 피처 값이 좋게 나온다. 학습 데이터에서 <code>telecom_payment_rate</code> 의 연령대별 평균(표준화 값)은 20-34 −0.978 / 35-54 +0.024 / 55+ +0.263 이다. 모델이 연령대를 보지 않아도 <strong>대안 피처를 통해 연령 정보를 간접적으로 학습</strong>한다.</p>
+<h3 id="08_fairness-h12">두 경로의 대비 — 이 실험의 핵심 결과</h3>
+<table><thead><tr><th></th><th>성별</th><th>연령대</th></tr></thead><tbody><tr><td>편향의 출처</td><td>의도적으로 주입한 측정 편향</td><td>피처 생성 구조에 내재한 상관</td></tr><tr><td><code>bias_ratio = 0</code> 에서</td><td>DI 1.0030 (완전 균등)</td><td>min/max DI 0.7840 (<strong>이미 미달</strong>)</td></tr><tr><td><code>bias_ratio</code> 반응</td><td>단조 감소 (−0.084)</td><td>거의 불변 (−0.009)</td></tr><tr><td>원인 제거</td><td><code>bias_ratio = 0</code> 으로 두면 사라진다</td><td>연령 신호를 빼야 하는데 <strong>예측력이 줄어든다</strong></td></tr></tbody></table>
+<p><strong>실무적으로 후자가 훨씬 까다롭다.</strong> 편향을 주입한 적이 없어도, 대안 데이터가 보호 속성과 자연스럽게 상관되어 있으면 그 상관이 그대로 결정에 실린다. 그리고 원인을 제거하려면 피처에서 그 정보를 빼야 하는데, 그것은 예측력의 일부를 버리는 일이다. 4.5절의 <code>w</code> 레버 실험에서 확인한 것과 같은 구조다. 공유요인을 키워도 전통 피처와의 상보성은 줄지 않았고, 상관 자체를 낮추자 성능이 함께 내려갔다.</p>
+<blockquote><p>이것이 실제 대안신용평가에서 반복될 문제다. 통신 요금 납부 이력은 연령과 상관되어 있고, 앱 사용 빈도도 그렇다. 보호 속성을 입력에서 제외하는 것은 <strong>필요하지만 충분하지 않다.</strong></p></blockquote>
+<hr>
+<h2 id="08_fairness-h13">7.4 Bias Mitigation 결과</h2>
+<p><code>ThresholdOptimizer(constraints="equalized_odds", objective="balanced_accuracy_score")</code> 를 보호 속성별로 각각 적합했다.</p>
+<table><thead><tr><th>지표</th><th>gender 전 → 후</th><th>age_group 전 → 후</th></tr></thead><tbody><tr><td>DI Ratio (명세 정의)</td><td>0.9191 → <strong>0.9942</strong></td><td>0.8375 → <strong>0.9433</strong></td></tr><tr><td>DI Ratio (min/max)</td><td>0.9191 → 0.9942</td><td><strong>0.7747 → 0.9245</strong></td></tr><tr><td>EO TPR 차이</td><td>0.0350 → 0.0106</td><td>0.0862 → 0.0384</td></tr><tr><td>EO FPR 차이</td><td>0.0696 → 0.0064</td><td><strong>0.1487 → 0.0155</strong></td></tr><tr><td>전체 승인율</td><td>0.7940 → 0.8196</td><td>0.7940 → 0.8492</td></tr><tr><td>정확도</td><td>0.8466 → 0.8701</td><td>0.8466 → 0.8921</td></tr><tr><td>AUC</td><td>0.9453 → 0.8736</td><td>0.9453 → 0.8592</td></tr></tbody></table>
+<p class="note">각주: valid 22,500행으로 적합, test 22,500행으로 평가. <code>random_state=42</code>.</p>
+<p>기준을 위반했던 <code>age_group</code> 의 EO FPR 차이가 <strong>0.1487 → 0.0155</strong> 로 해소되고, min/max DI 도 0.7747 → 0.9245 로 4/5 규칙을 넘겼다. 승인율은 0.79 → 0.82~0.85 로 소폭 올라가는 데 그쳐 심사 기능이 유지된다.</p>
+<figure><img src="report_assets/fairness_mitigation_comparison.png" alt="완화 전/후 비교"><figcaption>완화 전/후 비교</figcaption></figure>
+<h3 id="08_fairness-h14">집단별 조정 임계값</h3>
+<p><code>ThresholdOptimizer</code> 는 집단마다 두 개의 임계값 규칙을 확률적으로 섞는다(보간).</p>
+<table><thead><tr><th>보호 속성</th><th>집단</th><th>규칙</th><th style="text-align:right">완화 후 승인율</th></tr></thead><tbody><tr><td>gender</td><td>female</td><td>64.1% <code>p&gt;0.4492</code> / 35.9% <code>p&gt;0.4285</code></td><td style="text-align:right">0.8172</td></tr><tr><td></td><td>male</td><td>1.5% <code>p&gt;0.4087</code> / 98.5% <code>p&gt;0.2878</code></td><td style="text-align:right">0.8220</td></tr><tr><td>age_group</td><td>20-34</td><td>38.1% <code>p&gt;0.7164</code> / 61.9% <code>p&gt;0.5644</code></td><td style="text-align:right">0.8069</td></tr><tr><td></td><td>35-54</td><td>8.0% <code>p&gt;0.7107</code> / 92.0% <code>p&gt;0.5453</code></td><td style="text-align:right">0.8376</td></tr><tr><td></td><td>55+</td><td>51.2% <code>p&gt;0.4159</code> / 48.8% <strong><code>p&gt;0.1956</code></strong></td><td style="text-align:right">0.8728</td></tr></tbody></table>
+<p>읽는 방식은 이렇다. 원래는 모든 집단에 <code>p &lt; 0.30</code> 이면 승인이라는 단일 임계값을 썼다. 완화 후 20-34 는 <code>p</code> 가 0.56~0.72 미만이면 승인되고, 55+ 는 0.20~0.42 미만이어야 승인된다. <strong>젊은 집단은 완화되고 고령 집단은 엄격해진다</strong> — 편향 보정 방향이 의도와 맞다.</p>
+<h3 id="08_fairness-h15">AUC 하락은 성능 저하가 아니다</h3>
+<p>완화 후 AUC 가 0.9453 → 0.86 대로 떨어진다. <strong>이것은 모델이 나빠진 것이 아니다.</strong></p>
+<p>완화 전 출력은 0~1 사이의 <strong>부도 확률</strong>이고, AUC 는 그 확률의 <strong>순위 품질</strong>을 재는 지표다. 완화 후 출력은 승인/거절이라는 <strong>이진 결정</strong>이다. 확률 순위 정보가 사라졌으므로 이진 벡터로 계산한 AUC 는 원리적으로 낮아진다. 실제로 이진 예측의 AUC 는 <code>(TPR + TNR) / 2</code> 와 같다. 즉 balanced accuracy 를 보고 있는 셈이다.</p>
+<p>모델의 가중치도, 확률 출력도 바뀌지 않았다. 바뀐 것은 집단별 임계값뿐이다. 같은 표에서 <strong>정확도는 0.8466 → 0.8921 로 올랐다</strong>는 점도 함께 보아야 한다.</p>
+<blockquote><p><strong>따라서 완화 전/후 비교는 AUC 가 아니라 DI Ratio, Equalized Odds, 승인율로 판단한다.</strong> AUC 는 완화 전 모델의 판별력을 보고할 때만 쓴다. API 응답 (<code>GET /fairness/mitigation</code>)도 이 주의사항을 <code>note</code> 필드로 함께 반환한다.</p></blockquote>
+<h3 id="08_fairness-h16">목적함수를 바꾼 이유 (ADR-004 v2)</h3>
+<p>처음에는 <code>objective="accuracy_score"</code> 로 적합했다. 그 결과는 이렇다.</p>
+<table><thead><tr><th>지표</th><th style="text-align:right">완화 전</th><th style="text-align:right"><code>accuracy</code></th><th style="text-align:right"><code>balanced_accuracy</code> (채택)</th></tr></thead><tbody><tr><td>전체 승인율</td><td style="text-align:right">0.7940</td><td style="text-align:right"><strong>0.9546 ~ 0.9572</strong></td><td style="text-align:right">0.8196 ~ 0.8492</td></tr><tr><td>AUC</td><td style="text-align:right">0.9453</td><td style="text-align:right">0.7389 ~ 0.7411</td><td style="text-align:right">0.8592 ~ 0.8736</td></tr><tr><td>DI Ratio (gender / age_group)</td><td style="text-align:right">0.9191 / 0.8375</td><td style="text-align:right">1.0000 / 0.9759</td><td style="text-align:right">0.9942 / 0.9433</td></tr></tbody></table>
+<p class="note">각주: <code>accuracy</code> 열은 <code>bias_ratio=0.1</code> 데이터에서 측정한 값이다(ADR-004 v2 개정 시점). <code>balanced_accuracy</code> 열은 최종 데이터(<code>bias_ratio=0.3</code>) 기준이다.</p>
+<p><code>accuracy</code> 목적함수에서 공정성 지표는 더 좋아 보였다(DI 1.0000). 그러나 <strong>승인율이 0.79 에서 0.95 로 뛰었다.</strong> 부도율이 6.7% 인 데이터에서 정확도를 최대화하면 "거의 전부 승인"이 최적해가 되기 때문이다.</p>
+<p>이것은 공정성 개선이 아니라 <strong>심사 기능의 상실</strong>이다. 공정성 지표가 좋아진 이유도 "모두를 승인하면 집단 간 승인율 격차가 사라진다"는 자명한 사실일 뿐이다. <code>balanced_accuracy_score</code> 는 TPR 과 TNR 의 평균이라 소수 클래스를 무시할 수 없다. 전부 승인하면 TPR 이 0 이 되어 목적함수가 0.5 로 떨어진다.</p>
+<hr>
+<h2 id="08_fairness-h17">7.5 공정성-성능 트레이드오프</h2>
+<figure><img src="report_assets/fairness_tradeoff.png" alt="공정성-성능 트레이드오프"><figcaption>공정성-성능 트레이드오프</figcaption></figure>
+<p>왼쪽은 공정성(Equalized Odds 최대 차이)과 심사 기능(승인율)의 관계다. 두 보호 속성 모두 완화 후 EO 차이가 기준선(0.10) 왼쪽으로 이동하고, 승인율은 목표 구간(0.75~0.85, 음영) 안에 머문다. <code>age_group</code> 의 이동 폭이 큰 것은 완화 전 위반 정도가 컸기 때문이다.</p>
+<p>오른쪽은 승인율·정확도·AUC 의 전후 비교다. AUC 만 내려가고 정확도는 올라간다는 점이 앞 절에서 설명한 "순위 정보 소실"의 직접적인 증거다.</p>
+<h3 id="08_fairness-h18">규제 관점</h3>
+<p>금융위원회 금융분야 AI 가이드라인과 신용정보법 제36조의2 는 자동화평가에 대해 설명가능성과 공정성을 요구한다. 본 시스템이 대응하는 방식은 다음과 같다.</p>
+<table><thead><tr><th>요건</th><th>대응</th></tr></thead><tbody><tr><td>자동화평가 결과 설명</td><td><code>POST /explain</code> 이 거절 사유 Top 5 를 자연어로 반환 (6장)</td></tr><tr><td>공정성 지표 모니터링</td><td><code>GET /fairness</code> 가 DI 양 정의와 EO 를 반환, 기준 이탈 시 WARNING 로그</td></tr><tr><td>편향 완화 조치 기록</td><td><code>GET /fairness/mitigation</code> 이 전/후와 집단별 조정 임계값을 반환</td></tr><tr><td>민감정보 사용 금지</td><td>보호 속성을 학습 피처에서 제외 (ADR-008)</td></tr></tbody></table>
+<p>다만 <code>ThresholdOptimizer</code> 가 예측을 확률적으로 섞는다는 점은 실서비스에서 문제가 될 수 있다. 같은 고객에게 항상 같은 결정이 나오지 않기 때문이다. 10장에서 한계로 다룬다.</p>
+<hr>
+<h2 id="08_fairness-h19">이 장의 결론</h2>
+<ol><li><strong>보호 속성을 학습에서 제외해도 편향은 전파된다.</strong> 모델이 연령대를 본 적 없는데도 20-34 집단의 승인율이 55+ 보다 19.7%p 낮고, min/max DI 0.7747 로 4/5 규칙에 미달하며 EO FPR 차이 0.1487 로 기준을 위반한다.</li><li><strong>전파 경로는 두 종류다.</strong> 성별은 주입한 측정 편향(<code>bias_ratio=0</code> 에서 DI 1.0030 → 단조 감소), 연령대는 피처에 내재한 상관(<code>bias_ratio=0</code> 에서 이미 0.7840, 이후 불변). 후자는 원인 제거가 예측력 손실을 수반하므로 <strong>사후 임계값 조정이 현실적 대응</strong>이다.</li><li><strong>완화는 작동하지만 목적함수 선택이 결정적이다.</strong> <code>balanced_accuracy</code> 로 EO FPR 차이를 0.1487 → 0.0155 로 낮추면서 승인율을 0.85 이내로 유지했다. <code>accuracy</code> 를 썼을 때는 승인율이 0.95 로 뛰어 심사 기능 자체를 잃었다.</li></ol></section>
+<section class="chapter" id="09_anova"><h1 id="09_anova-h0">8. ANOVA 통계 검증</h1>
+<p>앞의 5~7장은 test 세트에서 얻은 단일 수치를 비교했다. 이 장은 그 차이가 <strong>우연으로 설명되지 않는지</strong>를 통계적으로 검정한다. 그리고 검정 결과를 어떻게 읽어야 하는지, 특히 효과크기 η² 가 0.95 를 넘는 값을 어떻게 해석해야 하는지를 다룬다.</p>
+<p>관련 설계 결정: <a href="decisions/ADR-005-anova-unit.md">ADR-005</a>, <a href="decisions/ADR-011-anova-control.md">ADR-011</a>, <a href="decisions/ADR-012-champion-algorithm.md">ADR-012</a></p>
+<p>명세(SPEC §5)가 요구하는 두 검정은 다음과 같다.</p>
+<table><thead><tr><th>검정</th><th>유형</th><th>비교 대상</th><th>목적</th></tr></thead><tbody><tr><td>검증 1</td><td>One-way ANOVA</td><td>피처 그룹 (전통 / 대안 / 통합)</td><td>대안 데이터 효용성 검증</td></tr><tr><td>검증 2</td><td>One-way ANOVA</td><td>알고리즘 (LR / XGBoost / LightGBM)</td><td>최적 알고리즘 선정 근거</td></tr></tbody></table>
+<hr>
+<h2 id="09_anova-h1">8.1 관측 단위와 통제 방식</h2>
+<h3 id="09_anova-h2">관측 단위: 반복 교차검증 (ADR-005)</h3>
+<p>ANOVA 의 관측치는 <strong>fold 별 AUC</strong> 다. 단일 5-Fold CV 를 쓰면 그룹당 n = 5 다. 이 표본 크기로는 검정력이 낮아 실제 차이를 잡아내지 못하고, 정규성·등분산 가정을 확인할 근거조차 부족하다.</p>
+<p>그래서 <code>RepeatedStratifiedKFold(n_splits=5, n_repeats=4)</code> 를 써서 <strong>그룹당 n = 20</strong> 을 확보했다. 18개 조합 × 20 fold = 총 <strong>360건</strong>이 <code>data/processed/fold_auc.csv</code> 에 있다.</p>
+<h3 id="09_anova-h3">통제: 나머지 요인을 고정한다 (ADR-011)</h3>
+<p>360건을 피처 그룹으로 나누면 그룹당 120건이다. 그러나 이 120건은 <strong>피처 그룹의 반복 관측이 아니다.</strong> 알고리즘 3종과 불균형 처리 2종이 안에 섞여 있기 때문이다.</p>
+<p>그대로 One-way ANOVA 에 넣으면 피처 그룹 효과와 알고리즘 효과가 <strong>교락(confounded)</strong> 된다. 집단 내 분산이 "같은 조건의 fold 간 변동"이 아니라 "알고리즘이 다른 데서 오는 변동"까지 포함하게 되어 F 통계량의 의미가 흐려진다.</p>
+<p>그래서 각 검정에서 나머지 요인을 한 수준으로 고정했다. 고정 값은 최종 채택 조합 (<code>config.models.champion</code>)을 따른다. 그러면 검정 결과가 실제로 배포되는 모델 구성에 대한 진술이 된다.</p>
+<table><thead><tr><th>검정</th><th>비교 요인</th><th>고정 요인</th><th style="text-align:right">그룹당 n</th></tr></thead><tbody><tr><td>검증 1</td><td>피처 그룹</td><td>알고리즘 = <code>xgboost</code>, 불균형 = <code>class_weight</code></td><td style="text-align:right"><strong>20</strong></td></tr><tr><td>검증 2</td><td>알고리즘</td><td>피처 그룹 = <code>combined</code>, 불균형 = <code>class_weight</code></td><td style="text-align:right"><strong>20</strong></td></tr></tbody></table>
+<h3 id="09_anova-h4">통제 vs pooled — 통제가 왜 필요한지의 직접 증거</h3>
+<p>같은 데이터로 통제한 결과와 통제하지 않은(pooled) 결과를 나란히 산출했다.</p>
+<table><thead><tr><th>검정</th><th style="text-align:right">통제 (n=20) F</th><th style="text-align:right">통제 η²</th><th style="text-align:right">pooled (n=120) F</th><th style="text-align:right"><strong>pooled η²</strong></th></tr></thead><tbody><tr><td>검증 1 (피처 그룹)</td><td style="text-align:right">4245.65</td><td style="text-align:right">0.9933</td><td style="text-align:right">1031.64</td><td style="text-align:right">0.8525</td></tr><tr><td>검증 2 (알고리즘)</td><td style="text-align:right">804.38</td><td style="text-align:right">0.9658</td><td style="text-align:right">16.08</td><td style="text-align:right"><strong>0.0826</strong></td></tr></tbody></table>
+<p class="note">각주: 동일한 <code>fold_auc.csv</code> 360건. 통제는 champion 조합 고정, pooled 는 전체 사용. <code>src/statistics/anova.py</code> 가 두 결과를 함께 산출한다.</p>
+<p><strong>검증 2 의 η² 가 0.9658 에서 0.0826 으로 급락한다.</strong> pooled 에서는 피처 그룹 효과 (traditional 0.836 ~ combined 0.945, 0.11 폭)가 집단 내 분산으로 흘러들어가 알고리즘 효과(0.912 ~ 0.945, 0.033 폭)를 압도한다. 검증 1 에서는 알고리즘 간 차이가 피처 그룹 간 차이보다 작아 감소 폭이 덜하다(0.9933 → 0.8525).</p>
+<p>pooled 결과도 리포트에 병기하되 <strong>참고치</strong>로만 쓴다. API(<code>GET /anova</code>)는 통제된 결과를 반환한다.</p>
+<hr>
+<h2 id="09_anova-h5">8.2 검증 1: 피처 그룹별 AUC 비교</h2>
+<h3 id="09_anova-h6">결과</h3>
+<table><thead><tr><th>집단</th><th style="text-align:right">n</th><th style="text-align:right">평균 AUC</th><th style="text-align:right">표준편차</th></tr></thead><tbody><tr><td><code>traditional_only</code></td><td style="text-align:right">20</td><td style="text-align:right">0.8355</td><td style="text-align:right">0.0047</td></tr><tr><td><code>alternative_only</code></td><td style="text-align:right">20</td><td style="text-align:right">0.8917</td><td style="text-align:right">0.0039</td></tr><tr><td><code>combined</code></td><td style="text-align:right">20</td><td style="text-align:right"><strong>0.9451</strong></td><td style="text-align:right">0.0024</td></tr></tbody></table>
+<p class="note">각주: <code>xgboost</code> · <code>class_weight</code> 고정, RepeatedStratifiedKFold(5×4), train 104,999행 내부 CV.</p>
+<p><strong>F = 4245.65, p = 9.64 × 10⁻⁶³, η² = 0.9933 [Large (strong)]</strong></p>
+<p>p &lt; 0.05 이므로 사후검정을 수행했다.</p>
+<table><thead><tr><th>비교</th><th style="text-align:right">평균 차이</th><th style="text-align:right">p_adj</th><th>유의</th></tr></thead><tbody><tr><td><code>combined</code> vs <code>traditional_only</code></td><td style="text-align:right"><strong>+0.1096</strong></td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr><tr><td><code>alternative_only</code> vs <code>traditional_only</code></td><td style="text-align:right">+0.0562</td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr><tr><td><code>combined</code> vs <code>alternative_only</code></td><td style="text-align:right">+0.0534</td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr></tbody></table>
+<h3 id="09_anova-h7">해석</h3>
+<p>세 쌍 모두 유의하다. 그리고 차이의 방향과 크기가 두 가지를 말해준다.</p>
+<p><strong>첫째, 대안 데이터는 단독으로도 전통 데이터를 앞선다</strong> (+0.0562). 통신비·공과금 납부 이력만으로 만든 모델이 전통 신용 피처 13개를 쓴 모델보다 낫다. 이는 4.3절에서 설명한 시뮬레이터의 구조적 성질(명세의 상관 요건이 관대하다) 때문이며, 실제 대안 데이터가 그렇다는 뜻은 아니다.</p>
+<p><strong>둘째, 통합 시 추가 이득이 있다</strong> (+0.0534). 대안 데이터만으로 0.892 에 도달한 뒤에도 전통 피처를 더하면 0.945 로 올라간다. 두 정보원이 서로 다른 것을 담고 있다는 뜻이며, 4.5절에서 "누수가 아니라 상보성"이라고 판정한 근거와 같다.</p>
+<hr>
+<h2 id="09_anova-h8">8.3 검증 2: 알고리즘별 AUC 비교</h2>
+<h3 id="09_anova-h9">결과</h3>
+<table><thead><tr><th>집단</th><th style="text-align:right">n</th><th style="text-align:right">평균 AUC</th><th style="text-align:right">표준편차</th></tr></thead><tbody><tr><td><code>logistic_regression</code></td><td style="text-align:right">20</td><td style="text-align:right">0.9120</td><td style="text-align:right">0.0037</td></tr><tr><td><code>lightgbm</code></td><td style="text-align:right">20</td><td style="text-align:right">0.9443</td><td style="text-align:right">0.0027</td></tr><tr><td><code>xgboost</code></td><td style="text-align:right">20</td><td style="text-align:right"><strong>0.9451</strong></td><td style="text-align:right">0.0024</td></tr></tbody></table>
+<p class="note">각주: <code>combined</code> · <code>class_weight</code> 고정, RepeatedStratifiedKFold(5×4).</p>
+<p><strong>F = 804.38, p = 1.68 × 10⁻⁴², η² = 0.9658 [Large (strong)]</strong></p>
+<table><thead><tr><th>비교</th><th style="text-align:right">평균 차이</th><th style="text-align:right">p_adj</th><th>유의</th></tr></thead><tbody><tr><td><code>xgboost</code> vs <code>logistic_regression</code></td><td style="text-align:right">+0.0331</td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr><tr><td><code>lightgbm</code> vs <code>logistic_regression</code></td><td style="text-align:right">+0.0323</td><td style="text-align:right">&lt; 0.0001</td><td>예</td></tr><tr><td><strong><code>xgboost</code> vs <code>lightgbm</code></strong></td><td style="text-align:right"><strong>+0.0008</strong></td><td style="text-align:right"><strong>0.6468</strong></td><td><strong>아니오</strong></td></tr></tbody></table>
+<h3 id="09_anova-h10">해석: 주장할 수 있는 범위</h3>
+<p>F 검정은 유의하지만 사후검정을 보면 <strong>부스팅 계열 두 개가 서로 구분되지 않는다.</strong> 평균 차이 0.0008 은 집단 내 표준편차(0.0024~0.0027)보다도 작다.</p>
+<p>따라서 이 검정으로 주장할 수 있는 것은 여기까지다.</p>
+<blockquote><p><strong>부스팅 계열(XGBoost, LightGBM)이 Logistic Regression 보다 통계적으로 유의하게 우수하다.</strong></p></blockquote>
+<p>"XGBoost 가 가장 성능이 좋다"는 서술은 데이터가 뒷받침하지 않는다. 이 결과에 따라 챔피언 알고리즘의 선정 근거를 변경했다(<a href="decisions/ADR-012-champion-algorithm.md">ADR-012</a>). XGBoost 를 채택한 이유는 성능이 아니라 <strong>SHAP TreeExplainer 지원 성숙도와 참조 자료의 풍부함</strong>이다. 설명가능성이 이 프로젝트의 핵심 산출물이므로 해석 도구와의 궁합을 우선했다.</p>
+<p>성능이 동등하므로 학습·추론 비용이 병목이 되면 LightGBM 으로 교체해도 논거가 훼손되지 않는다.</p>
+<hr>
+<h2 id="09_anova-h11">8.4 가정 진단</h2>
+<p>One-way ANOVA 는 정규성과 등분산성을 가정한다. 두 검정 모두 진단했다.</p>
+<h3 id="09_anova-h12">Shapiro-Wilk (정규성)</h3>
+<table><thead><tr><th>검정</th><th>집단</th><th style="text-align:right">W</th><th style="text-align:right">p</th><th>판정</th></tr></thead><tbody><tr><td>검증 1</td><td><code>traditional_only</code></td><td style="text-align:right">0.9847</td><td style="text-align:right">0.9797</td><td>충족</td></tr><tr><td></td><td><code>alternative_only</code></td><td style="text-align:right">0.9808</td><td style="text-align:right">0.9436</td><td>충족</td></tr><tr><td></td><td><code>combined</code></td><td style="text-align:right">0.9555</td><td style="text-align:right">0.4587</td><td>충족</td></tr><tr><td>검증 2</td><td><code>logistic_regression</code></td><td style="text-align:right">0.9253</td><td style="text-align:right">0.1251</td><td>충족</td></tr><tr><td></td><td><code>lightgbm</code></td><td style="text-align:right">0.9678</td><td style="text-align:right">0.7082</td><td>충족</td></tr><tr><td></td><td><code>xgboost</code></td><td style="text-align:right">0.9555</td><td style="text-align:right">0.4587</td><td>충족</td></tr></tbody></table>
+<h3 id="09_anova-h13">Levene (등분산성, 중앙값 기준)</h3>
+<table><thead><tr><th>검정</th><th style="text-align:right">통계량</th><th style="text-align:right">p</th><th>판정</th></tr></thead><tbody><tr><td>검증 1</td><td style="text-align:right">2.7107</td><td style="text-align:right">0.0751</td><td>충족</td></tr><tr><td>검증 2</td><td style="text-align:right">2.3292</td><td style="text-align:right">0.1066</td><td>충족</td></tr></tbody></table>
+<p>6개 집단 전부 정규성을 충족하고 두 검정 모두 등분산을 충족한다. 따라서 표준 One-way ANOVA 결과를 그대로 사용한다.</p>
+<p>다만 <strong>Levene p 값이 0.075 / 0.107 로 기준(0.05)에 가깝다.</strong> 집단 내 표준편차가 0.0024 ~ 0.0047 로 최대 두 배 차이가 나기 때문이다(<code>combined</code> 가 가장 작고 <code>traditional_only</code> 가 가장 크다). 설정이 조금 바뀌면 등분산 가정이 기각될 수 있다.</p>
+<p>이를 대비해 <code>src/statistics/anova.py</code> 는 가정 위반을 자동 감지하고 대안 검정을 함께 산출한다. 등분산 위반 시 <strong>Welch ANOVA</strong>(Alexander-Govern), 정규성 위반 시 <strong>Kruskal-Wallis</strong> 를 결과 JSON 에 추가한다. 현재 데이터에서는 두 가정 모두 충족되어 호출되지 않았다.</p>
+<figure><img src="report_assets/cv_fold_auc_distribution.png" alt="fold AUC 분포"><figcaption>fold AUC 분포</figcaption></figure>
+<p>왼쪽이 검증 1, 오른쪽이 검증 2 다. 검증 1 의 세 집단은 상자가 서로 겹치지 않는다. 검증 2 에서는 <code>lightgbm</code> 과 <code>xgboost</code> 의 상자가 거의 완전히 겹쳐, Tukey 결과 (p_adj = 0.6468)를 시각적으로 확인할 수 있다.</p>
+<hr>
+<h2 id="09_anova-h14">8.5 η² &gt; 0.95 를 어떻게 읽어야 하는가</h2>
+<p>두 검정의 η² 는 0.9933 과 0.9658 이다. 명세의 해석 기준(0.14 이상이면 Large)에 비추면 극단적으로 큰 값이다. <strong>이 값을 "대안 데이터가 성능의 99% 를 설명한다"로 읽으면 안 된다.</strong></p>
+<h3 id="09_anova-h15">왜 이렇게 큰가</h3>
+<p>η² 는 <code>집단간 제곱합 / 전체 제곱합</code> 이다. 분모의 대부분을 집단간 분산이 차지하려면 <strong>집단 내 분산이 작아야</strong> 한다. 본 실험에서 집단 내 표준편차는 0.0024 ~ 0.0047 이다.</p>
+<p>작은 이유는 실험 설계 때문이다.</p>
+<ul><li><strong>집단이 서로 다른 피처 구성/알고리즘으로 고정돼 있다.</strong> 각 집단 안에서 변하는 것은 fold 뿐이다.</li><li><strong>동일한 데이터에 반복 CV 를 적용했다.</strong> 20개 fold 는 같은 104,999행을 다르게 쪼갠 것이므로 서로 강하게 닮아 있다. 관측치가 독립 표본이 아니다.</li></ul>
+<p>즉 η² 가 큰 것은 효과가 실무적으로 크다는 뜻이 아니라, <strong>분모가 작게 나오는 설계</strong>의 결과다. 실험 설계상 필연적인 과대평가다.</p>
+<h3 id="09_anova-h16">p-value 도 보수적으로 읽어야 한다</h3>
+<p>같은 이유로 p-value 는 실제보다 작게 나온다. ANOVA 는 관측치의 독립성을 가정하는데 반복 CV fold 는 완전히 독립이 아니다. p = 9.64 × 10⁻⁶³ 같은 값을 문자 그대로 "우연일 확률이 10⁻⁶³" 로 읽어서는 안 된다.</p>
+<h3 id="09_anova-h17">실무 판단은 평균 차이의 절대 크기로</h3>
+<p>그래서 판단 기준을 Tukey HSD 의 <code>mean_diff</code> 로 옮긴다.</p>
+<table><thead><tr><th>비교</th><th style="text-align:right">mean_diff</th><th>실무적 판단</th></tr></thead><tbody><tr><td><code>combined</code> vs <code>traditional_only</code></td><td style="text-align:right"><strong>+0.1096</strong></td><td>AUC 0.11 차이 — 의미 있는 개선</td></tr><tr><td><code>alternative_only</code> vs <code>traditional_only</code></td><td style="text-align:right">+0.0562</td><td>의미 있는 개선</td></tr><tr><td><code>combined</code> vs <code>alternative_only</code></td><td style="text-align:right">+0.0534</td><td>의미 있는 개선</td></tr><tr><td><code>xgboost</code> vs <code>lightgbm</code></td><td style="text-align:right"><strong>+0.0008</strong></td><td><strong>무의미</strong> (표준편차보다 작다)</td></tr></tbody></table>
+<p>같은 검정 안에서 η² 는 둘 다 0.95 를 넘지만, mean_diff 는 0.11 과 0.0008 로 <strong>130배 차이</strong>가 난다. η² 만 보면 두 검정이 비슷하게 강력해 보이지만 실제 함의는 전혀 다르다.</p>
+<p><code>src/statistics/anova.py</code> 는 η² 가 설정된 임계값(<code>anova.eta_squared_extreme = 0.90</code>)을 넘으면 결과 JSON 에 <code>effect_size_note</code> 필드로 이 주의사항을 자동 첨부한다. API 응답과 대시보드 통계 검증 탭에도 경고로 표시된다.</p>
+<hr>
+<h2 id="09_anova-h18">이 장의 결론</h2>
+<ol><li><strong>두 검정 모두 유의하다.</strong> 검증 1(피처 그룹) F=4245.65, p&lt;0.001, η²=0.9933 / 검증 2(알고리즘) F=804.38, p&lt;0.001, η²=0.9658. 정규성·등분산 가정도 6개 집단 전부 충족한다.</li><li><strong>통제가 결과를 바꾼다.</strong> 나머지 요인을 고정하지 않으면 검증 2 의 η² 가 0.9658 → 0.0826 으로 급락한다. 피처 그룹 효과가 알고리즘 효과를 압도하기 때문이며, ADR-011 의 통제 방식이 필요한 이유의 직접 증거다.</li><li><strong>η² 와 p-value 는 과대평가된 값이다.</strong> 집단 내 분산이 작고(SD 0.0024~0.0047) 반복 CV fold 가 독립이 아니기 때문이다. 실무 판단은 Tukey <code>mean_diff</code> 로 한다 — <code>combined</code> vs <code>traditional</code> +0.1096 은 의미 있고, <code>xgboost</code> vs <code>lightgbm</code> +0.0008 은 무의미하다.</li></ol></section>
+<section class="chapter" id="10_errors"><h1 id="10_errors-h0">9. 검증 과정에서 발견하고 수정한 오류</h1>
+<p>이 장은 결과가 아니라 <strong>과정</strong>의 기록이다. 앞 장의 수치가 믿을 만하다고 주장하려면, 그 수치가 틀렸던 순간과 그것을 어떻게 잡았는지를 함께 보여야 한다.</p>
+<p>각 항목은 증상 → 원인 → 조치 → 재발 방지 순으로 적는다. 재발 방지는 <strong>자동 테스트로 강제되는 것</strong>과 <strong>사람이 지켜야 하는 절차</strong>를 구분해 적었다. 이 구분을 하다가, 재발 방지 테스트가 있다고 생각했던 두 건에 실제로는 테스트가 없다는 것을 발견해 이 장을 쓰는 중에 추가했다(9.4절).</p>
+<hr>
+<h2 id="10_errors-h1">9.1 오류 목록</h2>
+<table><thead><tr><th style="text-align:right">#</th><th>발견</th><th>증상</th><th>원인</th><th>조치</th><th>재발 방지</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td>9세션</td><td>거절 사유가 워터폴과 <strong>다른 피처</strong>를 가리킴</td><td>역스케일한 표시값을 모델에 넣어 SHAP 계산</td><td>모델 입력과 표시값(<code>display_row</code>) 분리</td><td><strong>자동</strong> <code>test_display_row_changes_values_not_ranking</code></td></tr><tr><td style="text-align:right">2</td><td>9세션</td><td>"동일 연령대 평균 <strong>−0회</strong>" 출력</td><td>씬파일러 센티넬(−1)이 참조 평균에 섞임</td><td>결측 플래그가 선 행을 평균에서 제외</td><td><strong>자동</strong> <code>test_reference_value_excludes_flagged_sentinel_rows</code> (17세션 추가)</td></tr><tr><td style="text-align:right">3</td><td>13세션</td><td><code>/explain</code> 이 연체 '기록 없음' 입력에서 <strong>500</strong></td><td><code>float(None)</code> — <strong>핵심 대상 집단인 씬파일러가 그대로 걸리는 경로</strong></td><td>센티넬 표기 + "기록이 없습니다" 문장 분기</td><td><strong>자동</strong> <code>test_explain_accepts_missing_delinquency</code> (17세션 추가)</td></tr><tr><td style="text-align:right">4</td><td>12세션</td><td>재학습 후 <code>/anova</code> 가 <strong>이전 결과</strong> 서빙 (F=4514.60, 현행 4245.65)</td><td>재학습 뒤 ANOVA 재실행 누락</td><td>재실행</td><td><strong>수동</strong> — 부트스트랩은 파일이 없을 때만 생성하므로 재학습 후 갱신을 강제하지 못한다</td></tr><tr><td style="text-align:right">5</td><td>12세션</td><td>전처리기 joblib 을 <strong>다른 프로세스에서 못 읽음</strong></td><td><code>python -m</code> 으로 저장하면 클래스 <code>__module__</code> 이 <code>"__main__"</code></td><td>저장 CLI 를 <code>run_preprocess.py</code> 로 분리</td><td><strong>자동</strong> API 기동 테스트가 전처리기 로드를 확인</td></tr><tr><td style="text-align:right">6</td><td>8세션</td><td>챔피언 선정 근거가 <strong>통계와 불일치</strong></td><td>Tukey 에서 XGB vs LGBM 유의차 없음인데 "성능 우위"로 서술</td><td>ADR-012 로 근거를 SHAP 지원 성숙도로 교체</td><td><strong>수동</strong> 리포트 교차검증</td></tr><tr><td style="text-align:right">7</td><td>13세션</td><td>대시보드 <strong>import 만으로 앱이 실행</strong>돼 테스트에서 "Forms cannot be nested"</td><td><code>main()</code> 호출이 모듈 최상위</td><td><code>__main__</code> 가드</td><td><strong>자동</strong> import 테스트 · AppTest</td></tr><tr><td style="text-align:right">8</td><td>14세션</td><td>Docker 이미지 <strong>빌드 실패 2건</strong></td><td>BuildKit 빌더 DNS 실패 / <code>fc-cache</code> 바이너리 부재</td><td><code>build.network: host</code>, <code>fontconfig</code> 설치</td><td><strong>수동</strong> 구성 파일 주석</td></tr><tr><td style="text-align:right">9</td><td>15세션</td><td>ADR-004 v2 개정이 <strong>문서에 반영되지 않음</strong> (코드·설정은 반영)</td><td>문자열 치환이 공백 불일치로 <strong>조용히 실패</strong>, 성공 메시지는 출력됨</td><td>17줄 → 40줄 복구</td><td><strong>절차</strong> 편집 후 치환 건수를 <code>assert</code> 로 확인</td></tr><tr><td style="text-align:right">10</td><td>16세션</td><td>ADR-001 부기의 SMOTE 비교표가 <strong><code>bias_ratio=0.1</code> 시점 값</strong>, 결론이 "combined 에서 SMOTE 근소 우세"</td><td>데이터 재생성 후 ADR 부기를 갱신하지 않음 — stale 수치 <strong>3번째</strong> 사례</td><td>최종 데이터로 9쌍 재작성. 17세션에 셈을 재정정(아래)</td><td><strong>수동</strong> 교차검증</td></tr><tr><td style="text-align:right">11</td><td>17세션</td><td>SHAP 전역 중요도(PROGRESS·목차)와 ADR-012 Tukey 가 <strong><code>bias_ratio=0.1</code> 시점 값</strong></td><td>같은 원인 — stale 수치 <strong>4·5번째</strong> 사례</td><td>최종 값으로 교체</td><td><strong>수동</strong> 교차검증</td></tr><tr><td style="text-align:right">12</td><td>17세션</td><td>배치 산출 거절 사유에 "30-59일 연체 횟수가 <strong>−1회로</strong>, 평균 대비 적습니다"</td><td>#3 수정이 <strong>API 경로에만</strong> 적용. 배치 경로는 센티넬 + 플래그로 들어옴</td><td>표시 행의 결측 플래그도 확인</td><td><strong>자동</strong> <code>test_sentinel_with_missing_flag_is_described_as_no_record</code> (수정 전 실패 확인)</td></tr></tbody></table>
+<p class="note">각주: 세션 번호는 <code>PROGRESS.md</code> 작업 로그 기준. 현재 pytest 169건 전부 통과.</p>
+<h3 id="10_errors-h2">#10 의 재정정</h3>
+<p>16세션에 SMOTE 비교표를 최종 데이터로 고치면서 결론을 "class_weight 가 <strong>9쌍 중 7쌍에서 우세하거나 동등</strong>"으로 적었다. 17세션에 반올림 전 값으로 다시 세어 보니 다음과 같았다.</p>
+<table><thead><tr><th>판정</th><th style="text-align:right">쌍 수</th><th>내역</th></tr></thead><tbody><tr><td>class_weight 우세</td><td style="text-align:right">7</td><td>traditional 3쌍, alternative XGB·LGBM, combined XGB·LogReg</td></tr><tr><td>사실상 동등</td><td style="text-align:right">1</td><td>alternative LogReg (차이 −0.00005)</td></tr><tr><td>SMOTE 우세</td><td style="text-align:right">1</td><td>combined LightGBM (−0.0013, CV SD ±0.0025 미만)</td></tr></tbody></table>
+<p>"우세하거나 동등"은 <strong>8쌍</strong>이 맞다. 같은 문단의 "SMOTE 가 이긴 경우는 한 쌍뿐"과도 모순이었다. 결론의 방향(<code>class_weight</code> 채택)은 바뀌지 않지만, 오류를 고친 문장에 새 오류가 들어간 사례다.</p>
+<h3 id="10_errors-h3">#11 의 영향: 결론은 같아도 사실이 바뀌었다</h3>
+<table><thead><tr><th>항목</th><th>기록돼 있던 값 (<code>bias_ratio=0.1</code>)</th><th>최종 값 (<code>bias_ratio=0.3</code>)</th></tr></thead><tbody><tr><td>SHAP 1위 <code>telecom_payment_rate</code></td><td>1.3460</td><td><strong>1.0272</strong></td></tr><tr><td>SHAP <strong>2위</strong></td><td><code>RevolvingUtilization</code> 0.7769</td><td><strong><code>spending_consistency</code> 0.8200</strong></td></tr><tr><td>1위 / 2위 배율</td><td>1.7배</td><td><strong>1.25배</strong></td></tr><tr><td>대안 / 전통 피처당 평균</td><td>0.6563 / 0.2011 (3.3배)</td><td>0.6374 / 0.2010 (3.2배)</td></tr><tr><td>ADR-012 Tukey XGB vs LGBM</td><td>mean_diff +0.0009, p_adj 0.6137</td><td>+0.0008, <strong>0.6468</strong></td></tr><tr><td>ADR-012 학습 시간 근거</td><td>XGB 18.3초 vs LGBM 16.8초</td><td>XGB <strong>19.0초</strong> vs LGBM <strong>22.3초</strong></td></tr></tbody></table>
+<p>"대안 피처가 1위다", "두 알고리즘은 유의차가 없다"는 결론은 그대로다. 그러나 <strong>2위 피처가 무엇인지</strong>, <strong>LightGBM 이 더 빠른지</strong>는 사실이 뒤집혔다. 옛 값은 PROGRESS·목차를 거쳐 6장 작성 계획에까지 옮겨져 있었고, 6장을 쓰면서 <code>global_importance.csv</code> 와 대조하다가 드러났다.</p>
+<hr>
+<h2 id="10_errors-h4">9.2 반복된 유형 ①: stale 수치 — 5건, 모두 같은 뿌리</h2>
+<table><thead><tr><th>사례</th><th>발견</th><th>남아 있던 곳</th><th>발견 경위</th></tr></thead><tbody><tr><td>① <code>/anova</code> 결과 (#4)</td><td>12세션</td><td>API 사전 계산 JSON</td><td><code>/anova</code> 엔드포인트 구현 중 발견</td></tr><tr><td>② 4장 인용 수치 3건</td><td>15세션</td><td>리포트 초안 (v1/v2 비교표 조합 혼용, 측정 시점 미표기, uplift 표 이전 실행 값)</td><td>장 작성 후 교차검증</td></tr><tr><td>③ ADR-001 SMOTE 표 (#10)</td><td>16세션</td><td>ADR 부기</td><td>5장 작성 중 교차검증</td></tr><tr><td>④ SHAP 전역 중요도 (#11)</td><td>17세션</td><td><code>PROGRESS.md</code>, 리포트 목차</td><td>6장 작성 중 CSV 대조</td></tr><tr><td>⑤ ADR-012 Tukey · 학습 시간 (#11)</td><td>17세션</td><td>ADR 본문, <code>simulator_diagnosis.md</code></td><td>옛 수치 문자열로 저장소 전체 검색</td></tr></tbody></table>
+<p><strong>다섯 건 모두 11세션의 데이터 재생성(ADR-002 v3, <code>bias_ratio</code> 0.1 → 0.3) 이전 값이다.</strong> 재생성은 산출물 파일(모델, CSV, JSON, 그림)을 전부 새로 만들었다. 그러나 그 전에 산출물에서 사람이 옮겨 적은 <strong>문서 속 수치</strong>는 누구도 다시 만들지 않았다. ①만 산출물 자체가 낡은 경우이고, 나머지 넷은 산출물은 최신인데 문서가 낡은 경우다.</p>
+<p>이 유형이 위험한 이유는 <strong>그럴듯하기 때문이다.</strong> 옛 값과 새 값은 자릿수가 같고 대부분 결론의 방향도 같다. 그래서 읽는 사람이 이상함을 느끼지 못한다. 하지만 ③은 결론을 뒤집었고 ("SMOTE 근소 우세" → "class_weight 7쌍 우세"), ④는 사실(2위 피처)을 바꿨다.</p>
+<h3 id="10_errors-h5">대책과 그 한계</h3>
+<table><thead><tr><th>대책</th><th>적용</th><th>효과</th></tr></thead><tbody><tr><td>장마다 인용 수치를 산출물에서 다시 계산해 대조</td><td>15세션부터</td><td>②~⑤ 를 전부 이 절차로 잡았다</td></tr><tr><td>표마다 측정 조건 각주 (<code>bias_ratio</code>, 표본, 임계값)</td><td>15세션부터</td><td>옛 수치가 섞였을 때 <strong>조건이 달라 보여</strong> 눈에 띈다</td></tr><tr><td>옛 수치 문자열로 저장소 전체 검색</td><td>17세션</td><td>⑤ 를 찾았다. 한 곳에서 stale 을 발견하면 같은 값이 다른 곳에도 있다</td></tr><tr><td>문서 수치를 산출물에서 자동 생성 (템플릿화)</td><td><strong>미적용</strong></td><td>근본 대책이지만 적용하지 않았다(10장)</td></tr></tbody></table>
+<hr>
+<h2 id="10_errors-h6">9.3 반복된 유형 ②: 한 곳만 고친 수정</h2>
+<table><thead><tr><th>사례</th><th>고친 곳</th><th>남은 곳</th><th>드러나기까지</th></tr></thead><tbody><tr><td>#3 → #12 '기록 없음' 분기</td><td>API 경로 (<code>null</code> 입력)</td><td>배치 경로 (센티넬 + 플래그)</td><td>4세션</td></tr><tr><td>#9 ADR-004 v2</td><td>코드 · 설정</td><td>ADR 문서</td><td>4세션</td></tr><tr><td>#10 재정정</td><td>비교표 수치</td><td>결론 문장의 셈</td><td>1세션</td></tr></tbody></table>
+<p>세 사례 모두 <strong>같은 정보가 두 경로 이상으로 흐르는데 한 경로만 고쳤다.</strong> '기록 없음'이라는 정보는 API 에서는 <code>None</code> 으로, 배치에서는 <code>−1</code> 과 플래그로 들어온다. ADR-004 의 목적함수라는 정보는 설정 파일과 문서 두 곳에 산다. 수정한 곳에서 테스트가 통과하면 끝났다고 느끼기 쉽다.</p>
+<p>#9 는 특히 교훈이 크다. 편집 도구가 성공 메시지를 냈지만 실제로는 아무것도 바꾸지 않았다. 이후로는 텍스트 편집 뒤 치환 건수를 <code>assert</code> 로 확인한다. 17세션에도 ADR-012 편집 1건이 표 구분선(<code>|---|---:|</code>) 불일치로 실패했는데, 이번에는 도구가 실패를 보고해 즉시 다시 적용했다. 조용히 실패했다면 사례 ⑤ 가 수정된 척 남았을 것이다.</p>
+<hr>
+<h2 id="10_errors-h7">9.4 재발 방지 장치의 실태</h2>
+<table><thead><tr><th>재발 방지</th><th style="text-align:right">건수</th><th>해당</th></tr></thead><tbody><tr><td>자동 테스트</td><td style="text-align:right">6</td><td>#1, #2, #3, #5, #7, #12</td></tr><tr><td>수동 절차 · 문서</td><td style="text-align:right">6</td><td>#4, #6, #8, #9, #10, #11</td></tr></tbody></table>
+<p>자동 테스트 6건 중 <strong>#2 와 #3 은 이 장을 쓰기 전까지 테스트가 없었다.</strong> 목차 초안에는 "각 오류는 재발 방지 테스트를 함께 추가했다"라고 적어 두었는데, 테스트 이름을 표에 채우려고 확인해 보니 #3 은 <code>/predict</code> 경로만 검사하고 있었고(<code>/explain</code> 은 검사하지 않음), #2 는 참조 평균 테스트가 센티넬 제외를 확인하지 않았다. 두 테스트를 추가해 pytest 는 166 → 169건이 됐다 (#12 회귀 테스트 포함).</p>
+<p>수동 6건은 대부분 <strong>문서와 산출물의 정합성</strong> 문제다. 코드의 오류는 테스트로 막을 수 있었지만, "문서에 적힌 숫자가 최신인가"는 테스트가 검사하지 않는다. 이 프로젝트에서 가장 많이 반복된 오류가 바로 그 영역에 있다.</p>
+<hr>
+<h2 id="10_errors-h8">이 장의 결론</h2>
+<ol><li><strong>12건의 오류 중 자동 테스트로 재발을 막는 것은 6건이다.</strong> 그중 2건은 이 장을 쓰며 테스트가 없다는 것을 발견해 추가했다. 나머지 6건은 문서·산출물 정합성 문제라 사람의 절차에 의존한다.</li><li><strong>가장 많이 반복된 유형은 stale 수치(5건)이며, 모두 11세션 재생성 이전 값이다.</strong> 산출물을 재생성하면 산출물에서 옮겨 적은 문서 수치를 전수 대조해야 한다. 결론이 같아도 사실이 바뀔 수 있다(SHAP 2위 피처, LightGBM 학습 속도).</li><li><strong>수정은 한 경로에만 적용되기 쉽다.</strong> '기록 없음' 분기는 API 에서 고친 뒤 배치 경로에서 4세션 동안 남았다. 같은 정보가 흐르는 다른 경로를 함께 점검하고, 편집은 결과를 확인해야 한다.</li></ol></section>
+<section class="chapter" id="11_limitations"><h1 id="11_limitations-h0">10. 한계</h1>
+<p>앞 장들에서 필요한 곳마다 단서를 달았다. 이 장은 그중 <strong>결론의 해석 범위를 제한하는 것</strong> 일곱 가지를 모은다. 각 항목은 무엇이 한계인지, 어떤 결론에 영향을 주는지, 왜 고치지 않았는지 순으로 적는다.</p>
+<blockquote><p><strong>이 장의 공통 측정 조건.</strong> 챔피언 <code>xgboost | combined | class_weight</code>, <code>bias_ratio = 0.3</code> 최종 데이터, test 22,500행, 승인 임계값 0.30. 다른 조건은 표 각주에 적었다.</p></blockquote>
+<hr>
+<h2 id="11_limitations-h1">10.1 시뮬레이션 데이터의 AUC 는 구조적 상한이다</h2>
+<p>챔피언의 test AUC <strong>0.9453</strong> 은 실제 신용평가 모델의 통상 수준(0.85 ~ 0.88)보다 높다. 대안 데이터의 실제 예측력이 아니라 <strong>명세 §4 의 상관 요건을 부도율 6.68% 이진 타겟에 그대로 적용한 결과</strong>다.</p>
+<table><thead><tr><th style="text-align:right">대안 피처 1개의 |corr|</th><th style="text-align:right">Cohen's d</th><th style="text-align:right">단일 피처 AUC</th></tr></thead><tbody><tr><td style="text-align:right">0.30</td><td style="text-align:right">≈ 1.26</td><td style="text-align:right">≈ 0.81</td></tr><tr><td style="text-align:right">0.49</td><td style="text-align:right">—</td><td style="text-align:right">≈ 0.94</td></tr></tbody></table>
+<p class="note">각주: 4.3절 효과크기 환산. 부도율 6.68% 에서의 점이연상관 기준.</p>
+<p>대안 피처 <strong>하나만으로</strong> 전통 모델 전체(0.8355)에 맞먹는다. 실제 통신·공과금 데이터의 개별 변수는 이보다 훨씬 약하다.</p>
+<p><strong>영향받는 결론.</strong> 절대 수치 전부 — 5장의 AUC·KS, 6장의 대안 피처 SHAP 비중(54.9%), 7장 편향의 크기. <strong>유지되는 결론.</strong> 피처 그룹 간 순서(<code>traditional &lt; alternative &lt; combined</code>), 씬파일러 유형 간 uplift 순서, 공정성 경로의 <strong>구분</strong>(성별 vs 연령대)처럼 <strong>상대 비교</strong>로 표현된 결론.</p>
+<p><strong>고치지 않은 이유.</strong> 목표 구간(0.85~0.90)에 넣으려면 상관을 0.22~0.26 까지 낮춰야 했고, 이는 명세 §4 위반이다(4.5절). 명세 준수를 택하고 해석 범위를 제한했다.</p>
+<hr>
+<h2 id="11_limitations-h2">10.2 상관 하한 여유가 0.01 에 못 미친다</h2>
+<table><thead><tr><th>피처</th><th style="text-align:right">train |corr|</th><th style="text-align:right">여유</th><th style="text-align:right">전체 |corr|</th><th style="text-align:right">여유</th></tr></thead><tbody><tr><td><code>spending_consistency</code></td><td style="text-align:right">0.3285</td><td style="text-align:right">+0.0285</td><td style="text-align:right">0.3291</td><td style="text-align:right">+0.0291</td></tr><tr><td><code>regular_payment_count</code></td><td style="text-align:right">0.3194</td><td style="text-align:right">+0.0194</td><td style="text-align:right">0.3194</td><td style="text-align:right">+0.0194</td></tr><tr><td><code>telecom_payment_rate</code></td><td style="text-align:right">0.3183</td><td style="text-align:right">+0.0183</td><td style="text-align:right">0.3195</td><td style="text-align:right">+0.0195</td></tr><tr><td><code>app_login_frequency</code></td><td style="text-align:right">0.3105</td><td style="text-align:right">+0.0105</td><td style="text-align:right"><strong>0.3094</strong></td><td style="text-align:right"><strong>+0.0094</strong></td></tr><tr><td><code>utility_payment_rate</code></td><td style="text-align:right"><strong>0.3099</strong></td><td style="text-align:right"><strong>+0.0099</strong></td><td style="text-align:right">0.3107</td><td style="text-align:right">+0.0107</td></tr></tbody></table>
+<p class="note">각주: <code>bias_ratio = 0.3</code> 최종 데이터, 피처와 부도 라벨의 Pearson 상관. train 은 <code>train.parquet</code> 104,999행 (<code>tests/test_simulator.py</code> 의 검사 대상이며 ADR-001 "한계" 절의 값), 전체는 train·valid·test 149,999행.</p>
+<p>요건은 두 기준 모두에서 충족하지만 여유가 얇고, <strong>가장 얇은 피처가 어느 쪽인지조차 표본에 따라 바뀐다</strong> (train 에서는 <code>utility</code>, 전체에서는 <code>app_login</code>). 편향 주입 대상인 두 피처(<code>telecom</code>, <code>utility</code>)는 <code>bias_ratio</code> 를 올릴수록 상관이 떨어지며, <strong>0.4 에서 이미 0.3014 / 0.2932 로 <code>utility</code> 가 요건을 벗어난다</strong> (ADR-002, 전체 149,999행). 따라서 7.3절 민감도 실험은 0 ~ 0.3 범위에서만 유효하다.</p>
+<p><strong>고치지 않은 이유.</strong> 여유를 늘리려면 <code>generation_correlation</code> 을 올려 데이터를 재생성해야 하고, 그러면 F1~F5 의 모든 수치를 다시 만들어야 한다. 9장에서 본 것처럼 재생성은 문서 속 수치를 낡게 만드는 가장 큰 원인이었다. 현재 데이터로 <strong>동결</strong>했다.</p>
+<hr>
+<h2 id="11_limitations-h3">10.3 승인 임계값 0.30 의 정밀도는 0.2899 다</h2>
+<table><thead><tr><th>지표</th><th style="text-align:right">값</th></tr></thead><tbody><tr><td>재현율 (부도 탐지)</td><td style="text-align:right">0.8936</td></tr><tr><td><strong>정밀도</strong></td><td style="text-align:right"><strong>0.2899</strong></td></tr><tr><td>F1</td><td style="text-align:right">0.4378</td></tr><tr><td>전체 승인율</td><td style="text-align:right">0.7940</td></tr></tbody></table>
+<p>임계값 0.30 은 재현율을 우선한 설정이다. 부도의 89% 를 잡아내지만 <strong>거절한 고객 중 실제 부도는 29%</strong> 에 그친다. 나머지 71% 는 6.4절의 경계 거절 고객처럼 부도가 나지 않았을 사람이다.</p>
+<p>여기에 척도 문제가 겹친다. 모델을 <code>class_weight='balanced'</code> 로 학습해 예측 확률이 <strong>가중된 척도</strong> 위에 있다(6.1절, 기준값 0.5295). 임계값 0.30 은 "실제 부도 확률 30%"가 아니다.</p>
+<p><strong>고치지 않은 이유.</strong> 실무라면 승인율 목표와 대손율 허용치를 넣은 비용 함수로 임계값을 골라야 한다. 그러나 임계값을 바꾸면 승인 결정이 바뀌고, DI Ratio · Equalized Odds · ThresholdOptimizer 결과가 전부 연동돼 바뀐다. 5~7장의 수치를 하나의 임계값 위에서 정합시키려고 ADR-003 의 값으로 동결했다.</p>
+<hr>
+<h2 id="11_limitations-h4">10.4 성별은 100% 합성이다</h2>
+<p>GMSC 에는 성별이 없다. 시뮬레이터가 <strong>타겟과 독립인 무작위 50:50</strong> 으로 만들었다 (test 세트 female 11,181 / male 11,319).</p>
+<p>이 전제 때문에 7.3절의 성별 결과는 <strong>실증이 아니라 설계의 확인</strong>이다. <code>bias_ratio = 0</code> 에서 gender DI 가 1.0030 인 것은 발견이 아니라 무작위 합성이면 당연히 나오는 값이다. 실제 성별은 소득·직업· 금융 이용 패턴과 얽혀 있어, 7장에서 연령대에서 본 <strong>피처 내재 상관</strong> 경로가 성별에도 존재할 가능성이 높다. 이 실험은 그 경로를 구조적으로 배제했다.</p>
+<p>반면 연령대(<code>age_group</code>)는 실제 GMSC <code>age</code> 에서 구간화했으므로 7.3절의 연령대 결과는 실제 연령 분포 위에서 나온 것이다. 다만 대안 피처와 연령의 상관(<code>nuisance</code> 의 연령 가중 0.3)은 시뮬레이터가 정했다.</p>
+<p><strong>고치지 않은 이유.</strong> 실제 성별이 있는 데이터는 German Credit 뿐인데 표본이 부족하다(10.7절).</p>
+<hr>
+<h2 id="11_limitations-h5">10.5 η² 는 과대평가되고, p-value 는 과소평가된다</h2>
+<table><thead><tr><th>검정</th><th style="text-align:right">η²</th><th>집단 내 SD</th><th>Tukey mean_diff</th></tr></thead><tbody><tr><td>검증 1 (피처 그룹)</td><td style="text-align:right">0.9933</td><td>0.0024 ~ 0.0047</td><td>combined vs traditional <strong>+0.1096</strong></td></tr><tr><td>검증 2 (알고리즘)</td><td style="text-align:right">0.9658</td><td>0.0024 ~ 0.0037</td><td>XGBoost vs LightGBM <strong>+0.0008</strong></td></tr></tbody></table>
+<p class="note">각주: 8장. RepeatedStratifiedKFold(5×4), 그룹당 n=20, 나머지 요인 champion 조합 고정(ADR-011).</p>
+<p>두 검정의 η² 가 모두 0.95 를 넘지만 평균 차이는 <strong>130배</strong> 다르다. η² 가 큰 것은 효과가 크다는 뜻이 아니라, 집단마다 구성이 <strong>고정</strong>돼 있고 같은 104,999행을 반복해 쪼갠 fold 라 집단 내 변동이 작기 때문이다. 같은 이유로 fold 가 독립이 아니어서 p-value(9.64 × 10⁻⁶³ 등)는 실제보다 작다.</p>
+<p><strong>영향받는 결론.</strong> "통계적으로 유의하다"는 진술의 강도. <strong>판단 기준은 mean_diff 의 절대 크기로 옮겼다</strong>(8.5절). <strong>고치지 않은 이유.</strong> 명세 §5 가 fold AUC 를 관측 단위로 하는 ANOVA 를 요구한다. 독립 표본을 얻으려면 train 104,999행을 겹치지 않는 20조각으로 나눠 각각 학습·평가해야 하는데, 그러면 조각당 약 5,250행으로 줄어 부도 건수가 350건 안팎에 그치고 집단 하위 분석이 불안정해진다. 설계를 유지하고 해석을 제한했다.</p>
+<hr>
+<h2 id="11_limitations-h6">10.6 ThresholdOptimizer 의 결정은 확률적이고, 보호 속성을 결정 시점에 쓴다</h2>
+<h3 id="11_limitations-h7">같은 고객에게 같은 결정이 나오지 않는다</h3>
+<p><code>ThresholdOptimizer</code> 는 집단마다 두 임계값 규칙을 확률적으로 섞는다(7.4절). 예측 확률이 두 임계값 사이에 있는 고객은 <strong>동전 던지기</strong>로 승인·거절이 갈린다.</p>
+<table><thead><tr><th>보호 속성</th><th>집단</th><th>확률적 결정 구간</th><th style="text-align:right">해당 고객</th><th style="text-align:right">비율</th><th style="text-align:right">상수 예측 확률 <code>p_ignore</code></th></tr></thead><tbody><tr><td>gender</td><td>female</td><td>0.4285 &lt; p ≤ 0.4492</td><td style="text-align:right">82</td><td style="text-align:right">0.73%</td><td style="text-align:right">0.85%</td></tr><tr><td></td><td>male</td><td>0.2878 &lt; p ≤ 0.4087</td><td style="text-align:right">439</td><td style="text-align:right">3.88%</td><td style="text-align:right">0</td></tr><tr><td></td><td><strong>합계</strong></td><td></td><td style="text-align:right"><strong>521</strong></td><td style="text-align:right"><strong>2.32%</strong></td><td style="text-align:right"></td></tr><tr><td>age_group</td><td>20-34</td><td>0.5644 &lt; p ≤ 0.7164</td><td style="text-align:right">148</td><td style="text-align:right">5.19%</td><td style="text-align:right">0</td></tr><tr><td></td><td>35-54</td><td>0.5453 &lt; p ≤ 0.7107</td><td style="text-align:right">437</td><td style="text-align:right">4.49%</td><td style="text-align:right">0.06%</td></tr><tr><td></td><td>55+</td><td>0.1956 &lt; p ≤ 0.4159</td><td style="text-align:right">726</td><td style="text-align:right">7.33%</td><td style="text-align:right">1.59%</td></tr><tr><td></td><td><strong>합계</strong></td><td></td><td style="text-align:right"><strong>1,311</strong></td><td style="text-align:right"><strong>5.83%</strong></td><td style="text-align:right"></td></tr></tbody></table>
+<p class="note">각주: test 22,500행에 챔피언 예측 확률을 넣고 <code>fairness_results.json</code> 의 집단별 조정 임계값으로 계산했다. <code>p_ignore</code> 는 임계값 규칙 대신 상수 예측을 쓸 확률로, 구간 밖 고객에게도 적용된다.</p>
+<p>평가에서는 <code>random_state</code> 를 고정해 재현되지만, 실서비스에서 한 고객에게는 재현되지 않는다. <strong>age_group 완화를 적용하면 고객 17명 중 1명꼴(5.83%)의 결정이 난수에 달린다.</strong> 6장에서 공들인 거절 사유 설명은 이 고객들에게 의미를 잃는다. "당신이 거절된 이유"의 상당 부분이 난수이기 때문이다.</p>
+<h3 id="11_limitations-h8">학습에서 뺀 보호 속성을 결정에서 쓴다</h3>
+<p><code>ThresholdOptimizer.predict</code> 는 <code>sensitive_features</code> 인자를 <strong>필수로</strong> 받는다. 즉 ADR-008 로 학습에서 제외한 성별·연령대를 <strong>개별 고객의 승인 결정 시점에 직접 사용</strong>한다. 같은 예측 확률 0.40 이라도 남성에게는 98.5% 확률로 <code>p &gt; 0.2878</code> 규칙이 적용돼 거절되고, 여성에게는 두 규칙(<code>p &gt; 0.4492</code>, <code>p &gt; 0.4285</code>) 모두 승인이다(<code>p_ignore</code> 0.85% 제외).</p>
+<p>집단 간 결과의 격차(disparate impact)를 줄이는 대가로 집단에 따른 <strong>처우의 차이(disparate treatment)</strong> 를 도입하는 것이다. 7.5절의 규제 관점 표에서 "민감정보 사용 금지 — 학습 피처에서 제외"라고 적었지만, 완화 단계까지 포함하면 이 대응은 <strong>학습 단계에만</strong> 성립한다.</p>
+<p><strong>고치지 않은 이유.</strong> 명세 §4 가 완화 전/후 비교를 요구하고, 같은 모델·같은 확률 위에서 비교하려면 후처리가 가장 깨끗하다(ADR-004). 결정론적 대안(집단별 단일 임계값)이나 보호 속성을 결정에 쓰지 않는 in-processing 기법(ExponentiatedGradient 등)은 11장 향후 과제로 남긴다.</p>
+<hr>
+<h2 id="11_limitations-h9">10.7 German Credit 으로 외부 검증하지 않았다</h2>
+<p><code>src/data/loader.py</code> 에 <code>load_german_credit()</code>(UCI id=144)를 구현해 두었지만 분석에는 쓰지 않았다(ADR-006). 표본이 <strong>1,000건</strong>이라 반복 CV 와 성별 × 연령대 하위 집단 분석을 하면 집단당 수십 건으로 떨어진다.</p>
+<p>그 결과 모든 결론이 <strong>단일 데이터셋(GMSC) 위의 결론</strong>이다. GMSC 는 미국 데이터이며 국내 씬파일러의 분포와 다르다. German Credit 은 실제 성별·연령 속성을 담고 있어 10.4절의 합성 성별 한계를 일부 보완할 수 있었지만, 그 기회도 쓰지 않았다.</p>
+<hr>
+<h2 id="11_limitations-h10">본문에서 다룬 그 밖의 한계</h2>
+<table><thead><tr><th>한계</th><th>위치</th></tr></thead><tbody><tr><td>PSI 는 무작위 층화 분할이라 분포 이동 검출 조건으로는 관대하다</td><td>5.2절</td></tr><tr><td>극단 이상치 때문에 <code>RevolvingUtilization</code> Dependence Plot 은 x 축을 99 백분위에서 잘라 그렸다(이상치 20개 제외)</td><td>6.3절</td></tr><tr><td>설명 소거로 소득·연령의 SHAP 부호가 역설적이다 (시뮬레이터 구조의 산물)</td><td>6.3절</td></tr><tr><td>방향 일치 검증은 부호 모순만 잡으며, 참조 평균과 SHAP 기준값이 다르다</td><td>6.5절</td></tr><tr><td>반사실 설명("무엇을 바꾸면 승인되는가")은 수동 분석이며 API 로 구현하지 않았다</td><td>6.4절</td></tr><tr><td>문서 속 수치를 산출물에서 자동 생성하지 않아 stale 수치가 5번 발생했다</td><td>9.2절</td></tr></tbody></table>
+<hr>
+<h2 id="11_limitations-h11">이 장의 결론</h2>
+<ol><li><strong>절대 수치가 아니라 상대 비교만 해석한다.</strong> AUC 0.9453 은 명세 상관 요건이 만든 구조적 상한이고, 성별 편향은 무작위 합성 위의 설계 확인이다. 그리고 결론 전체가 GMSC 단일 데이터셋 위에 있다.</li><li><strong>세 가지 설정을 결과 정합성 때문에 동결했다.</strong> 상관 하한 여유(train 0.0099, 전체 0.0094), 임계값 0.30(정밀도 0.2899), 반복 CV 기반 ANOVA. 각각 재생성 비용, 공정성 지표 연동, 명세 요건이 이유이며 해석 범위를 제한해 대응했다.</li><li><strong>완화 기법은 새로운 문제를 들여온다.</strong> ThresholdOptimizer 는 age_group 기준 고객의 5.83% 를 난수로 결정하고, 학습에서 뺀 보호 속성을 결정 시점에 직접 쓴다. 공정성 지표의 개선이 설명가능성과 처우의 일관성을 대가로 얻어졌다.</li></ol></section>
+<section class="chapter" id="12_conclusion"><h1 id="12_conclusion-h0">11. 결론</h1>
+<h2 id="12_conclusion-h1">11.1 확정 결론</h2>
+<p>전통 신용정보가 결손된 씬파일러에게 대안 데이터는 통계적으로 유의한 AUC 개선을 제공한다 (씬파일러 집단 <strong>+0.152</strong>, 전체 <strong>+0.110</strong>; One-way ANOVA F=4245.65, <strong>p &lt; 0.001</strong>, η²=0.9933). 개선폭은 전통 피처의 결손이 클수록 커진다 (<code>thin:both</code> +0.188 &gt; <code>thin:missing_only</code> +0.168 &gt; <code>thin:history_only</code> +0.101 &gt; 일반 +0.095).</p>
+<p>그러나 <strong>보호 속성을 학습에서 제외해도(ADR-008) 편향은 대안 피처를 경유해 전파된다.</strong> 그 경로는 두 종류로 구분된다.</p>
+<table><thead><tr><th>경로</th><th>대상</th><th>근거</th><th>특징</th></tr></thead><tbody><tr><td><strong>측정 편향</strong></td><td>성별</td><td><code>bias_ratio=0</code> 에서 DI 1.0030 → 0.3 에서 0.9191 (단조 반응)</td><td>주입한 편향이 원인. 원인을 제거하면 사라진다</td></tr><tr><td><strong>피처 내재 상관</strong></td><td>연령대</td><td><code>bias_ratio=0</code> 에서 이미 min/max DI 0.7840, 0.3 에서 0.7747 (거의 불변)</td><td>대안 피처가 연령을 신호원으로 쓰는 설계에서 옴</td></tr></tbody></table>
+<p><strong>후자는 편향 원인 제거가 예측력 손실을 수반한다.</strong> 연령대 격차를 없애려면 대안 피처에서 연령 신호를 빼야 하는데, 그러면 피처의 예측력 자체가 줄어든다(ADR-001 v2 의 w 레버 실험에서 확인한 것과 같은 구조다). 데이터를 고치는 대신 <strong>사후 임계값 조정(ThresholdOptimizer)이 현실적 대응</strong>이며, 실제로 EO FPR 차이를 0.1487 → 0.0155 로 낮추면서 승인율을 0.7940 → 0.8492 로 유지했다.</p>
+<p class="note">각주: 위 세 문단과 표는 <code>docs/report_assets/fairness_narrative.md</code> §5 의 확정 문장을 그대로 옮겼다. 수치 조건은 5·7·8장과 같다(챔피언 <code>xgboost | combined | class_weight</code>, <code>bias_ratio = 0.3</code>, test 22,500행, 임계값 0.30). 단 "현실적 대응"의 비용은 10.6절에서 따로 다룬다.</p>
+<hr>
+<h2 id="12_conclusion-h2">11.2 세 질문에 대한 답</h2>
+<p>1장에서 세운 세 질문에 대해 이 프로젝트가 보인 것을 정리한다.</p>
+<h3 id="12_conclusion-h3">성능: 대안 데이터는 누구에게 도움이 되는가</h3>
+<table><thead><tr><th>발견</th><th>근거</th><th>장</th></tr></thead><tbody><tr><td>피처 그룹 순서가 6개 조합 전부에서 <code>traditional &lt; alternative &lt; combined</code></td><td>test AUC 0.8355 / 0.8902 / 0.9460, Tukey 3쌍 유의</td><td>5.3, 8.2</td></tr><tr><td><strong>기여는 전통 피처 결손에 비례</strong></td><td>uplift <code>history_only</code> +0.1013 &lt; <code>missing_only</code> +0.1681 &lt; <code>both</code> +0.1883</td><td>5.4</td></tr><tr><td>통합 모델은 세그먼트 간 평가 품질 격차를 줄인다</td><td>세그먼트 간 AUC 편차 0.1131 → 0.0195</td><td>5.4</td></tr><tr><td>부스팅 두 알고리즘은 구분되지 않는다</td><td>XGB vs LGBM mean_diff +0.0008, p_adj 0.6468</td><td>8.3</td></tr></tbody></table>
+<h3 id="12_conclusion-h4">설명가능성: 모델의 판단을 고객에게 설명할 수 있는가</h3>
+<table><thead><tr><th>발견</th><th>근거</th><th>장</th></tr></thead><tbody><tr><td>판단의 중심은 대안 피처, 씬파일러일수록 더</td><td>대안 5개 전부 7위 내, Top 5 중 대안 수 <code>history_only</code> 3.00 &lt; <code>both</code> 3.34</td><td>6.2</td></tr><tr><td><strong>XAI 의 가치는 경계 사례에서 드러난다</strong></td><td>p=0.375 로 거절된 비부도 씬파일러가 통신비·공과금 각 +2%p 로 승인(p=0.2922)</td><td>6.4</td></tr><tr><td>정확한 SHAP 값이 정확한 설명을 보장하지 않는다</td><td>설명 소거로 "소득이 높아 불리", 결측을 숫자로 다루면 "연체 −1회로 적습니다"</td><td>6.3, 6.6</td></tr></tbody></table>
+<h3 id="12_conclusion-h5">공정성: 보호 속성을 빼면 차별이 사라지는가</h3>
+<table><thead><tr><th>발견</th><th>근거</th><th>장</th></tr></thead><tbody><tr><td><strong>사라지지 않는다</strong></td><td>연령대 min/max DI 0.7747, EO FPR 차이 0.1487 (기준 위반)</td><td>7.2</td></tr><tr><td>전파 경로는 측정 편향과 피처 내재 상관 두 종류</td><td>11.1 표</td><td>7.3</td></tr><tr><td>완화는 작동하나 목적함수가 결정적이다</td><td><code>accuracy</code> 는 승인율 0.95 로 심사 기능 상실, <code>balanced_accuracy</code> 는 0.82~0.85 유지</td><td>7.4</td></tr><tr><td>완화는 새로운 문제를 들여온다</td><td>age_group 완화 시 고객 5.83% 가 확률적 결정, 보호 속성을 결정 시점에 사용</td><td>10.6</td></tr></tbody></table>
+<hr>
+<h2 id="12_conclusion-h6">11.3 실무 시사점</h2>
+<p><strong>① 대안 데이터의 효과는 세그먼트별로 평가해야 한다.</strong> 전체 uplift(+0.110)는 씬파일러 유형 간 차이 (+0.101 ~ +0.188)를 가린다. 이 프로젝트에서도 씬파일러를 한 덩어리로만 봤다면 <code>history_only</code> 와 <code>both</code> 사이의 1.9배 차이를 놓쳤다(ADR-010).</p>
+<p><strong>② 보호 속성 제외는 필요하지만 충분하지 않다.</strong> 대안 데이터 도입 전에 <strong>편향을 주입하지 않은 기준 상태</strong>에서 공정성을 측정해야 한다. 7.3절의 <code>bias_ratio = 0</code> 행이 그 역할을 했고, 연령대 격차가 주입 편향이 아니라 피처 구조에서 온다는 것을 그 한 줄이 보여줬다. 통신 요금 납부 이력이나 앱 사용 빈도처럼 연령과 자연 상관되는 대안 데이터는 실제로 흔하다.</p>
+<p><strong>③ 설명의 충실성은 따로 설계해야 한다.</strong> 신용정보법 제36조의2 는 설명의 존재를 요구하지만, 틀린 설명은 설명이 없는 것보다 해롭다. 이 프로젝트에서는 SHAP 입력 스케일 분리, 합성 샘플을 쓰는 SMOTE 기각, 결측의 '기록 없음' 분기, 방향 불일치 표지가 그 역할을 했다(6.7절).</p>
+<p><strong>④ 공정성 완화는 지표만 보고 고르면 안 된다.</strong> <code>accuracy</code> 목적함수는 DI 1.0000 이라는 가장 좋은 공정성 지표를 줬지만, 그것은 거의 전원을 승인해서 얻은 값이었다. 승인율·정밀도 같은 <strong>심사 기능 지표</strong>와 결정의 <strong>일관성</strong>을 함께 봐야 한다.</p>
+<p><strong>⑤ 산출물을 재생성하면 문서를 전수 대조해야 한다.</strong> 이 프로젝트에서 가장 많이 반복된 오류는 코드가 아니라 문서 속 낡은 수치였다(9장, 5건). 결론은 같아 보여도 사실이 바뀌어 있었다.</p>
+<hr>
+<h2 id="12_conclusion-h7">11.4 향후 과제</h2>
+<table><thead><tr><th>과제</th><th>해소하는 한계</th><th>비고</th></tr></thead><tbody><tr><td>실제 대안 데이터 또는 German Credit 으로 외부 검증</td><td>10.1, 10.4, 10.7</td><td>절대 수치와 실제 성별 경로 확인</td></tr><tr><td>반사실 설명 API</td><td>6.4</td><td>명세 보너스 과제 2. 고객이 바꿀 수 있는 피처로 탐색 제한</td></tr><tr><td>LIME 과 SHAP 의 Top 5 일치율 비교</td><td>6.5</td><td>명세 보너스 과제 1</td></tr><tr><td>세그먼트 × 모델 구성 Two-way ANOVA</td><td>10.5</td><td>명세 보너스 과제 3. uplift 의 교호작용을 직접 검정</td></tr><tr><td>비용 함수 기반 임계값 최적화 후 공정성 재평가</td><td>10.3</td><td>임계값을 바꾸면 7장 전체를 다시 계산해야 한다</td></tr><tr><td>결정론적 완화 또는 in-processing 기법 비교</td><td>10.6</td><td>확률적 결정과 결정 시점의 보호 속성 사용을 피한다</td></tr><tr><td>리포트 수치를 산출물에서 자동 생성</td><td>9.2</td><td>stale 수치의 근본 대책</td></tr></tbody></table>
+<hr>
+<h2 id="12_conclusion-h8">이 장의 결론</h2>
+<ol><li><strong>대안 데이터는 씬파일러에게 유의한 개선을 주며, 그 크기는 전통 정보의 결손에 비례한다</strong> (씬파일러 +0.152, <code>both</code> +0.188 &gt; <code>history_only</code> +0.101; F=4245.65, p&lt;0.001).</li><li><strong>보호 속성을 학습에서 빼도 편향은 대안 피처로 전파되고, 경로는 측정 편향(성별)과 피처 내재 상관(연령대)으로 갈린다.</strong> 후자는 원인 제거가 예측력 손실을 수반해 사후 임계값 조정이 현실적 대응이지만, 그 조정은 확률적 결정과 결정 시점의 보호 속성 사용이라는 비용을 치른다.</li><li><strong>설명은 존재만으로 충분하지 않다.</strong> 경계 사례에서 설명은 행동으로 이어지지만(통신비·공과금 +2%p 로 승인), 결측 처리와 설명 소거를 따로 설계하지 않으면 정확한 SHAP 값이 틀린 문장이 된다.</li></ol></section>
+<section class="chapter" id="99_appendix"><h1 id="99_appendix-h0">부록</h1>
+<h2 id="99_appendix-h1">A. 설계 결정(ADR) 색인</h2>
+<table><thead><tr><th>ADR</th><th>주제</th><th>결정 요지</th><th>개정 이력</th></tr></thead><tbody><tr><td>001</td><td>대안 데이터 시뮬레이터</td><td>대안 5변수 = 타겟 신호 + <strong>공유 잠재요인</strong>(소득·연령 신호 + 공통 노이즈) 구조. 생성 상관 0.31~0.35, <code>w = 0.85</code></td><td>v1 개별 노이즈 → <strong>v2</strong> 공유 잠재요인(결합 누수 제거). 부기: 불균형 처리 <code>class_weight</code> 채택. 2026-09-11 상관 측정 조건 명시</td></tr><tr><td>002</td><td>편향 주입 (<code>bias_ratio</code>)</td><td><code>female</code> · <code>20-34</code> 의 통신·공과금 납부율을 <code>bias_ratio × 0.3</code> 하향. <strong>타겟은 불변</strong></td><td>v1 대상 55+ → v2 20-34, 계수 0.1 → 0.3 → <strong>v3</strong> 기본 <code>bias_ratio</code> 0.3</td></tr><tr><td>003</td><td>점수 매핑 · 임계값</td><td><code>score = 1000 × (1 − p)</code>, 등급 A≥800 ~ E, 승인 <code>p &lt; 0.30</code></td><td>사후 관찰: 임계값 0.30 의 정밀도 0.2899 기록</td></tr><tr><td>004</td><td>공정성 완화 기법</td><td>Fairlearn <code>ThresholdOptimizer(equalized_odds)</code> — 후처리라 전/후를 같은 모델 위에서 비교</td><td><strong>v2</strong> 목적함수 <code>accuracy</code> → <code>balanced_accuracy_score</code></td></tr><tr><td>005</td><td>ANOVA 관측 단위</td><td><code>RepeatedStratifiedKFold(5×4)</code> → 그룹당 n = 20</td><td>—</td></tr><tr><td>006</td><td>메인 데이터셋</td><td>GMSC. German Credit 은 로더 함수만 두고 미사용(표본 1,000건)</td><td>—</td></tr><tr><td>007</td><td>연령 이상치</td><td><code>age &lt; 18</code> 행 제거(1행). 대체하지 않음</td><td>—</td></tr><tr><td>008</td><td>보호 속성</td><td><code>gender</code> · <code>age_group</code> 을 학습 피처에서 제외, 데이터에는 유지</td><td>—</td></tr><tr><td>009</td><td><code>credit_history_months</code></td><td>거래 이력 개월수 합성으로 씬파일러 OR 판정 완성. 판정 근거 컬럼은 학습 제외</td><td>—</td></tr><tr><td>010</td><td>씬파일러 유형 분화</td><td><code>missing_only</code> 40% / <code>history_only</code> 30% / <code>both</code> 30%</td><td>—</td></tr><tr><td>011</td><td>ANOVA 통제 방식</td><td>비교 요인 외 나머지를 챔피언 조합으로 고정, pooled 결과는 참고치로 병기</td><td>—</td></tr><tr><td>012</td><td>챔피언 알고리즘 근거</td><td>XGBoost 채택, 근거는 <strong>성능이 아니라 SHAP 지원 성숙도</strong>(Tukey p_adj = 0.6468)</td><td>2026-09-11 Tukey·학습시간 수치를 최종 데이터로 갱신</td></tr></tbody></table>
+<p>원문은 <code>docs/decisions/ADR-0NN-*.md</code>. 각 ADR 은 결정 · 근거 · <strong>버린 대안</strong>을 함께 적는다.</p>
+<hr>
+<h2 id="99_appendix-h2">B. API 명세</h2>
+<p>기본 주소 <code>http://localhost:8000</code>, 문서 <code>/docs</code>(Swagger UI). 모든 요청·응답에 Pydantic 스키마가 있다.</p>
+<table><thead><tr><th style="text-align:right">#</th><th>메서드 · 경로</th><th>입력</th><th>주요 응답 필드</th></tr></thead><tbody><tr><td style="text-align:right">1</td><td><code>GET /health</code></td><td>—</td><td><code>status</code>(healthy/degraded), <code>model_version</code>, <code>champion</code>, <code>artifacts_loaded</code>, <code>timestamp</code></td></tr><tr><td style="text-align:right">2</td><td><code>POST /predict</code></td><td>고객 정보 JSON</td><td><code>credit_score</code>(0~1000), <code>approval_status</code>, <code>default_probability</code>, <code>risk_grade</code>(A~E), <code>threshold</code></td></tr><tr><td style="text-align:right">3</td><td><code>POST /explain</code></td><td>고객 정보 JSON</td><td><code>rejection_reasons[5]</code>, <code>total_rejection_factors</code>, <code>shap_values</code>(18개), <code>base_value</code></td></tr><tr><td style="text-align:right">4</td><td><code>GET /metrics</code></td><td>—</td><td><code>auc</code>, <code>ks</code>, <code>precision</code>, <code>recall</code>, <code>f1</code>, <code>psi</code></td></tr><tr><td style="text-align:right">5</td><td><code>GET /fairness</code></td><td>—</td><td><code>di_ratio</code>, <code>di_ratio_min_max</code>, <code>equalized_odds_tpr_diff</code>, <code>equalized_odds_fpr_diff</code>, <code>worst_attribute</code>, <code>by_attribute</code></td></tr><tr><td style="text-align:right">6</td><td><code>GET /fairness/mitigation</code></td><td>—</td><td><code>before</code> / <code>after</code> / <code>delta</code>, <code>adjusted_thresholds</code>(집단별), <code>note</code></td></tr><tr><td style="text-align:right">7</td><td><code>GET /anova</code></td><td>—</td><td><code>test_1</code>, <code>test_2</code> — <code>f_statistic</code>, <code>p_value</code>, <code>effect_size_eta_squared</code>, <code>post_hoc_tukey</code>, <code>diagnostics</code>, <code>effect_size_note</code></td></tr></tbody></table>
+<h3 id="99_appendix-h3">요청 스키마 (<code>POST /predict</code>, <code>POST /explain</code>)</h3>
+<table><thead><tr><th>그룹</th><th>필드</th><th>비고</th></tr></thead><tbody><tr><td>전통</td><td><code>RevolvingUtilizationOfUnsecuredLines</code>, <code>age</code>, <code>DebtRatio</code>, <code>MonthlyIncome</code>, <code>NumberOfOpenCreditLinesAndLoans</code>, <code>NumberRealEstateLoansOrLines</code>, <code>NumberOfDependents</code></td><td><code>MonthlyIncome</code> · <code>NumberOfDependents</code> 가 <code>null</code> 이면 학습 중앙값으로 대체</td></tr><tr><td>전통 (연체)</td><td><code>NumberOfTime30-59DaysPastDueNotWorse</code>, <code>NumberOfTime60-89DaysPastDueNotWorse</code>, <code>NumberOfTimes90DaysLate</code></td><td><strong><code>null</code> = 기록 없음</strong>(씬파일러). 중앙값 대체 없이 센티넬 + 플래그로 보존</td></tr><tr><td>대안</td><td><code>telecom_payment_rate</code>, <code>utility_payment_rate</code>, <code>spending_consistency</code>(0~1), <code>regular_payment_count</code>, <code>app_login_frequency</code></td><td></td></tr><tr><td>보호 속성 · 세그먼트</td><td><code>gender</code>, <code>age_group</code>, <code>credit_history_months</code></td><td><strong>학습에 쓰이지 않는다.</strong> <code>age_group</code> 은 생략 시 <code>age</code> 로 계산</td></tr></tbody></table>
+<p>필드명은 GMSC 원본 컬럼명(alias)과 snake_case 둘 다 받는다. 알 수 없는 필드는 거부한다(<code>extra="forbid"</code>).</p>
+<h3 id="99_appendix-h4">거절 사유 항목 (<code>rejection_reasons[]</code>)</h3>
+<p><code>rank</code>, <code>feature</code>, <code>feature_name_kr</code>, <code>current_value</code>, <code>reference_value</code>(동일 연령대 평균), <code>shap_contribution</code>(신용도 관점, 음수 = 불리), <code>shap_value_default</code>(부도 관점 원본), <code>explanation</code>, <code>direction_consistent</code>. 명세 §3 의 필수 4개 필드를 포함한다(6.5절).</p>
+<hr>
+<h2 id="99_appendix-h5">C. 재현 절차</h2>
+<pre><code># 1) 산출물 생성 (약 15분, 최초 1회)
+docker compose --profile setup run --rm bootstrap     # 또는: bash scripts/bootstrap.sh
+
+# 2) 서비스 기동 → localhost:8000 / 8501 / 5000
+docker compose up
+
+# 3) 테스트
+pytest                                                # 171건
+
+# 4) 리포트 수치 대조 · HTML 생성
+python scripts/verify_report_numbers.py
+python scripts/build_report.py                        # → docs/experiment_report.html</code></pre>
+<p>부트스트랩에 포함되지 않는 분석(데이터를 여러 번 재생성하므로 별도 실행):</p>
+<pre><code>python -m src.analysis.eda            # 3·4장 그림 8종
+python -m src.fairness.sensitivity    # 7.3절 bias_ratio 민감도 (0.0 ~ 0.3 재학습)</code></pre>
+<p>모든 난수는 <code>config.project.random_state = 42</code> 로 고정돼 있어 같은 입력에서 같은 산출물이 나온다. 예외는 SHAP Summary · Dependence Plot 의 점 배치(렌더링 난수)로, 그림의 픽셀은 달라져도 수치는 같다.</p>
+<p>PDF 는 <code>docs/experiment_report.html</code> 을 브라우저에서 열고 <strong>인쇄 → PDF로 저장</strong>(용지 A4, 배경 그래픽 켜기, 머리글·바닥글 끄기)으로 만든다.</p>
+<hr>
+<h2 id="99_appendix-h6">D. 테스트 구성</h2>
+<table><thead><tr><th>파일</th><th style="text-align:right">개수</th><th>검증 대상</th></tr></thead><tbody><tr><td><code>test_simulator.py</code></td><td style="text-align:right">24</td><td>대안 5변수 상관 요건, <code>thin_filer_ratio</code> · <code>bias_ratio</code> 반응, 씬파일러 유형 분화</td></tr><tr><td><code>test_preprocessor.py</code></td><td style="text-align:right">19</td><td>결측 처리(센티넬·중앙값), 스케일링, 층화 분할 비율, train 전용 fit</td></tr><tr><td><code>test_loader.py</code></td><td style="text-align:right">6</td><td>GMSC 로드, <code>age &lt; 18</code> 제거, 결측률 로그</td></tr><tr><td><code>test_train.py</code></td><td style="text-align:right">6</td><td>조합 생성, 불균형 처리 파이프라인, 챔피언 선택</td></tr><tr><td><code>test_evaluate.py</code></td><td style="text-align:right">7</td><td>AUC · KS · PSI 계산</td></tr><tr><td><code>test_explainer.py</code></td><td style="text-align:right"><strong>25</strong></td><td>SHAP 형태·가산성, 거절 사유 5개와 필수 필드, 참조 평균(센티넬 제외), 방향 일치, 한글 조사, 축 절단</td></tr><tr><td><code>test_fairness.py</code></td><td style="text-align:right">15</td><td>DI 두 정의, Equalized Odds, WARNING 로그, ThresholdOptimizer 전/후</td></tr><tr><td><code>test_anova.py</code></td><td style="text-align:right">22</td><td>F · p · η², Tukey HSD, 정규성·등분산 진단, 통제 vs pooled</td></tr><tr><td><code>test_api.py</code></td><td style="text-align:right"><strong>29</strong></td><td>7개 엔드포인트 스키마, 응답 시간, 연체 <code>null</code> 입력, OpenAPI · Swagger</td></tr><tr><td><code>test_dashboard.py</code></td><td style="text-align:right">18</td><td>탭 5개 렌더링, <strong>모델 파일 미로드(AST 검사)</strong>, API 미기동 시 동작</td></tr><tr><td><strong>합계</strong></td><td style="text-align:right"><strong>171</strong></td><td>명세 요건: 10개 이상, 80% 이상 통과 → <strong>171개 전부 통과</strong></td></tr></tbody></table>
+<p>9장의 오류에 대응하는 회귀 테스트: <code>test_display_row_changes_values_not_ranking</code>(#1), <code>test_reference_value_excludes_flagged_sentinel_rows</code>(#2), <code>test_explain_accepts_missing_delinquency</code>(#3), <code>test_sentinel_with_missing_flag_is_described_as_no_record</code>(#12).</p>
+<hr>
+<h2 id="99_appendix-h7">E. 수치 대조 스크립트</h2>
+<p>리포트에 인용한 수치가 산출물과 어긋나는 것(9.2절의 stale 수치, 5건)을 막으려고 대조를 스크립트로 고정했다.</p>
+<pre><code>python scripts/verify_report_numbers.py                 # 전체
+python scripts/verify_report_numbers.py --chapters 3 6  # 일부 장</code></pre>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>방식</td><td>산출물(<code>data/processed/</code>, 원본 CSV, MLflow 산출 CSV)에서 값을 <strong>다시 계산</strong>해 문서와 같은 형식으로 만든 뒤, 해당 문자열이 문서의 <strong>같은 줄</strong>에 있는지 확인</td></tr><tr><td>처리</td><td>수학 기호 마이너스(−)와 하이픈(-)을 동일 취급, 백분율은 half-up 반올림, 일부 검사는 모델 재학습·API 호출로 값을 얻음</td></tr><tr><td>대조 범위</td><td>3 · 6 · 9 · 10 · 11장 전 수치와 1 · 2장 · 요약의 핵심 수치</td></tr><tr><td>제외</td><td>4 · 5 · 7 · 8장 — 작성 세션에서 같은 방식으로 수작업 대조했고 기록은 <code>PROGRESS.md</code> 에 있다</td></tr><tr><td>한계</td><td>문서에 값이 <strong>있는지</strong>만 보고 문맥의 정확성은 보지 않는다. 실행에 수 분이 걸린다. 과거 값 대조는 git 이력에 의존한다</td></tr><tr><td>종료 코드</td><td>전부 일치 0, 하나라도 불일치 1</td></tr><tr><td>대조 결과</td><td>2026-09-12 기준 <strong>368건 전부 일치</strong> (요약 20 · 1장 14 · 2장 37 · 3장 80 · 6장 102 · 9장 27 · 10장 36 · 11장 18 · 부록 34)</td></tr></tbody></table>
+<hr>
+<h2 id="99_appendix-h8">F. 산출물 목록</h2>
+<table><thead><tr><th>경로</th><th>내용</th></tr></thead><tbody><tr><td><code>models/champion_xgboost_v1.0.pkl</code> 외 3개</td><td>최종 모델 (알고리즘별 1개 + 챔피언)</td></tr><tr><td><code>data/processed/{train,valid,test}.parquet</code></td><td>전처리·분할 결과 (24열)</td></tr><tr><td><code>data/processed/model_results.csv</code> · <code>fold_auc.csv</code></td><td>18조합 지표 · fold AUC 360건</td></tr><tr><td><code>data/processed/thin_filer_uplift.csv</code></td><td>세그먼트별 uplift</td></tr><tr><td><code>data/processed/anova_results.json</code></td><td>ANOVA 두 검정 + Tukey + 진단 + pooled 참고치</td></tr><tr><td><code>data/processed/explain/</code></td><td>전역 중요도 CSV, 거절 사유 샘플 JSON, 그림 7종</td></tr><tr><td><code>data/processed/fairness/</code></td><td>공정성 전/후 JSON, <code>bias_ratio</code> 민감도 CSV, 그림 4종</td></tr><tr><td><code>docs/report_assets/</code></td><td>리포트 그림 24종, 진단 · 공정성 서술 문서</td></tr><tr><td><code>mlflow.db</code> · <code>mlruns/</code></td><td>MLflow run 18개, Model Registry</td></tr></tbody></table></section>
+</body>
+</html>
