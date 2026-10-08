@@ -1,22 +1,21 @@
-# CLAUDE.md
+# 개발 지침
 
 대안 데이터(통신·공과금 납부 이력 등)를 결합해 씬파일러의 신용위험을 평가하고, 예측의 설명가능성과
 집단 공정성까지 함께 검증하는 교육용 ML 시스템.
 
-## 세션 시작 시 반드시 할 일
+## 변경 관리
 
-1. **`PROGRESS.md` 를 먼저 읽는다.** 현재 상태·다음 할 일·미해결 이슈가 거기에 있다.
-2. 관련된 설계 결정은 `docs/decisions/ADR-*.md` 에서 확인한다.
-3. 작업이 하나 끝날 때마다 **즉시** `PROGRESS.md` 를 갱신한다. 세션 마지막에 몰아 쓰지 않는다.
+구현 상태는 `PROGRESS.md`, 설계 근거는 `docs/decisions/ADR-*.md`에서 관리한다.
+기능 변경 시 관련 테스트와 구현 상태를 함께 갱신한다.
 
 ## 디렉터리 구조
 
 ```
 credit-scoring/
 ├── CLAUDE.md              # 이 파일 (작업 규칙)
-├── PROGRESS.md            # 작업 로그 — 세션 시작 시 필독
+├── PROGRESS.md            # 구현 상태와 검증 범위
 ├── README.md
-├── docker-compose.yml     # api / dashboard / mlflow (현재 스켈레톤)
+├── docker-compose.yml     # api / dashboard / mlflow + bootstrap 프로파일
 ├── Dockerfile             # python:3.12-slim 기반
 ├── requirements.txt       # 버전 고정. 확정 스냅샷은 requirements.lock
 ├── .env.example
@@ -48,7 +47,7 @@ credit-scoring/
 - **보호 속성(`gender`, `age_group`)과 세그먼트 컬럼(`is_thin_filer`, `credit_history_months`)은
   학습 피처에 넣지 않는다.** 학습 X 는 `config.features` 의 traditional / alternative 로만 구성한다 (ADR-008, ADR-009).
 - 커밋 메시지는 `type: 설명` 형식 (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`).
-- **새로운 설계 결정이 생기면 먼저 사용자에게 묻는다.** 확정되면 `docs/decisions/ADR-XXX-*.md` 로 기록한다.
+- 새 설계 결정은 배경·대안·검증 조건과 함께 `docs/decisions/ADR-XXX-*.md`에 기록한다.
 
 ## 설계 결정 (상세는 각 ADR 참조)
 
