@@ -18,13 +18,13 @@
 
 데이터 시뮬레이션부터 모델링, 설명가능성·공정성 분석, API와 대시보드까지 구현한 개인 프로젝트다.
 
-| 역할 | 담당 | 산출물 |
-|---|---|---|
-| 데이터 파이프라인 · 시뮬레이터 | 1인 | `src/data/` |
-| 모델링 · 실험 추적 | 1인 | `src/models/`, MLflow |
-| XAI · 공정성 · 통계 | 1인 | `src/explainer/`, `src/fairness/`, `src/statistics/` |
-| 서빙 · 대시보드 | 1인 | `src/api/`, `src/dashboard/` |
-| 설계 문서 · 리포트 | 1인 | `docs/decisions/`(ADR 12건), `docs/report_assets/` |
+| 구현 구성 | 주요 경로·도구 |
+|---|---|
+| 데이터 파이프라인 · 시뮬레이터 | `src/data/` |
+| 모델링 · 실험 추적 | `src/models/`, MLflow |
+| XAI · 공정성 · 통계 | `src/explainer/`, `src/fairness/`, `src/statistics/` |
+| 서빙 · 대시보드 | `src/api/`, `src/dashboard/` |
+| 설계 문서 · 리포트 | `docs/decisions/`(ADR 12건), `docs/report_assets/` |
 
 ---
 
